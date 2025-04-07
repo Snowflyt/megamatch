@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    "composite": true,
+    "target": "ESNext",
+    "lib": ["ESNext"],
+    "module": "ESNext",
+    "types": ["node"],
+    "erasableSyntaxOnly": false
+  },
+  "include": ["src/**/*", "test/**/*", "bench/**/*"],
+  "exclude": []
+}

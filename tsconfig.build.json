@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2015",
+    "composite": true,
+    "useDefineForClassFields": false,
+    "lib": ["ES2015"],
+    "module": "ES2015",
+    "types": [],
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "outDir": "dist",
+
+    /* Linting */
+    "strict": true,
+    "checkJs": true,
+    "noImplicitAny": false,
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Type */
+    "declaration": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.proof.ts", "src/**/*.spec.ts", "src/**/*.bench.ts"],
+  "tsc-alias": {
+    "resolveFullPaths": true
+  }
+}
