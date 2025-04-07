@@ -39,10 +39,10 @@
     "prepare": "node -e \"import fs from 'node:fs'; import path from 'node:path'; const hooksDir = path.join(process.cwd(), '.githooks'); const gitHooksDir = path.join(process.cwd(), '.git/hooks'); if (fs.existsSync(gitHooksDir)) { fs.readdirSync(hooksDir).forEach(file => { const srcFile = path.join(hooksDir, file); const destFile = path.join(gitHooksDir, file); fs.copyFileSync(srcFile, destFile); if (process.platform !== 'win32' && !file.endsWith('.cmd')) { fs.chmodSync(destFile, 0o755); } }); }\"",
     "test": "vitest run",
     "test-types": "tsc --noEmit --composite false -p tsconfig.test.json && typroof",
-    "test:cov": "vitest run --coverage --coverage.include \"src/**/!(*.proof).{js,ts}\" --coverage.exclude \"src/lib/parser/static.ts\" --coverage.exclude \"src/lib/type-utils/**/*\" --coverage.exclude \"src/static/**/*\" --coverage.exclude \"src/types.ts\"",
-    "test:ui": "vitest --ui --coverage.enabled=true --coverage.include \"src/**/!(*.proof).{js,ts}\" --coverage.exclude \"src/lib/parser/static.ts\" --coverage.exclude \"src/lib/type-utils/**/*\" --coverage.exclude \"src/static/**/*\" --coverage.exclude \"src/types.ts\"",
+    "test:cov": "vitest run --coverage --coverage.reporter=text --coverage.reporter=lcov --coverage.include \"src/**/!(*.proof).{js,ts}\" --coverage.exclude \"src/lib/parser/static.ts\" --coverage.exclude \"src/lib/type-utils/**/*\" --coverage.exclude \"src/static/**/*\" --coverage.exclude \"src/types.ts\"",
+    "test:ui": "vitest --ui --coverage.enabled=true --coverage.reporter=text --coverage.reporter=lcov --coverage.include \"src/**/!(*.proof).{js,ts}\" --coverage.exclude \"src/lib/parser/static.ts\" --coverage.exclude \"src/lib/type-utils/**/*\" --coverage.exclude \"src/static/**/*\" --coverage.exclude \"src/types.ts\"",
     "test:watch": "vitest",
-    "test:watch-cov": "vitest --coverage --coverage.include \"src/**/!(*.proof).{js,ts}\" --coverage.exclude \"src/lib/parser/static.ts\" --coverage.exclude \"src/lib/type-utils/**/*\" --coverage.exclude \"src/static/**/*\" --coverage.exclude \"src/types.ts\"",
+    "test:watch-cov": "vitest --coverage --coverage.reporter=text --coverage.reporter=lcov --coverage.include \"src/**/!(*.proof).{js,ts}\" --coverage.exclude \"src/lib/parser/static.ts\" --coverage.exclude \"src/lib/type-utils/**/*\" --coverage.exclude \"src/static/**/*\" --coverage.exclude \"src/types.ts\"",
     "typecheck": "tsc --noEmit --composite false -p tsconfig.build.json"
   },
   "dependencies": {
