@@ -2,7 +2,7 @@
   "name": "megamatch",
   "version": "0.1.0",
   "private": true,
-  "description": "Painless pattern matching in TypeScript with minimalistic syntax and type safety.",
+  "description": "Painless pattern matching in TypeScript with type safety and minimalistic syntax.",
   "keywords": [
     "pattern matching",
     "pattern",

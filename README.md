@@ -1,7 +1,7 @@
 <h1 align="center">megamatch</h1>
 
 <p align="center">
-  <i>Painless</i> <strong>pattern matching</strong> in <strong>TypeScript</strong> with <strong>minimalistic</strong> syntax and <strong>type-safety</strong>.
+  <i>Painless</i> <strong>pattern matching</strong> in <strong>TypeScript</strong> with <strong>type-safety</strong> and <strong>minimalistic</strong> syntax.
 </p>
 
 <p align="center">
