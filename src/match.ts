@@ -9,6 +9,8 @@ import type { BaseType, MatchNode } from "./static/match";
 import type { ParsePattern } from "./static/parser";
 import type { Node } from "./types";
 
+export { setPatternCacheLimit } from "./runtime/parser";
+
 /*********
  * match *
  *********/
