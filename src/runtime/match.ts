@@ -6,6 +6,20 @@
 
 import type { Node } from "../types";
 
+export const invokeCaseFn = (
+  value: unknown,
+  matchResult: MatchResult,
+  onMatch: (...args: unknown[]) => unknown,
+): unknown => {
+  const { args } = matchResult;
+  if (Array.isArray(args)) {
+    if (!args.length) return onMatch(value);
+    return onMatch(...args);
+  }
+  if (!Object.keys(args).length) return onMatch(value);
+  return onMatch(args);
+};
+
 export interface MatchResult {
   args: readonly unknown[] | Record<string, unknown>;
 }

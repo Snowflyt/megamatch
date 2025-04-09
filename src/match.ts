@@ -1,7 +1,7 @@
 import { NonExhaustiveError } from "./errors";
 import type { Equals, Option, Union } from "./lib/type-utils";
 import { checkNode } from "./runtime/checker";
-import { matchNode } from "./runtime/match";
+import { invokeCaseFn, matchNode } from "./runtime/match";
 import { parsePattern } from "./runtime/parser";
 import type { CheckNode } from "./static/checker";
 import type { ExcludeDeep } from "./static/exclude-deep";
@@ -18,21 +18,7 @@ interface _ {
   [_]: never;
 }
 
-export type MatchFn<R = _, T = _> =
-  Equals<R, _> extends true ?
-    {
-      <const T, Pattern extends string, R>(value: T, cases: ValidateCases<T, Pattern, R>): R;
-      <T, Pattern extends string>(cases: ValidateCases<T, Pattern, R>): (value: T) => R;
-    }
-  : Equals<T, _> extends true ?
-    {
-      <const T, Pattern extends string>(value: T, cases: ValidateCases<T, Pattern, R>): R;
-      <T, Pattern extends string>(cases: ValidateCases<T, Pattern, R>): (value: T) => R;
-    }
-  : {
-      <Pattern extends string>(value: T, cases: ValidateCases<T, Pattern, R>): R;
-      <Pattern extends string>(cases: ValidateCases<T, Pattern, R>): (value: T) => R;
-    };
+export type MatchFn<T, R> = (value: T) => R;
 
 /**
  * Match a value against a set of patterns. Exhaustiveness check is performed at both compile-time
@@ -91,8 +77,16 @@ export function match<const T, Pattern extends string, R>(
 ): R;
 export function match<T, Pattern extends string, R>(
   cases: ValidateCases<T, Pattern, R>,
-): (value: T) => R;
-export function match<R, T = _>(): MatchFn<R, T>;
+): MatchFn<T, R>;
+export function match<R, T = _>(): Equals<T, _> extends true ?
+  {
+    <const T, Pattern extends string>(value: T, cases: ValidateCases<T, Pattern, R>): R;
+    <T, Pattern extends string>(cases: ValidateCases<T, Pattern, R>): MatchFn<T, R>;
+  }
+: {
+    <Pattern extends string>(value: T, cases: ValidateCases<T, Pattern, R>): R;
+    <Pattern extends string>(cases: ValidateCases<T, Pattern, R>): MatchFn<T, R>;
+  };
 export function match(
   ...args: [] | [cases: Record<string, any>] | [value: unknown, cases: Record<string, any>]
 ) {
@@ -142,13 +136,7 @@ const matchCase = (
 ): Option<unknown> => {
   const match = matchNode(value, node);
   if (!match) return { _tag: "None" };
-  const { args } = match;
-  if (Array.isArray(args)) {
-    if (!args.length) return { _tag: "Some", value: onMatch(value) };
-    return { _tag: "Some", value: onMatch(...args) };
-  }
-  if (!Object.keys(args).length) return { _tag: "Some", value: onMatch(value) };
-  return { _tag: "Some", value: onMatch(args) };
+  return { _tag: "Some", value: invokeCaseFn(value, match, onMatch) };
 };
 
 interface NonExhaustive<T> {
