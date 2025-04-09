@@ -91,7 +91,13 @@ export const matchNode = (value: unknown, node: Node): MatchResult | null => {
         const result = {};
         for (const key of Reflect.ownKeys(value)) {
           if (!Reflect.getOwnPropertyDescriptor(value, key)!.enumerable) continue;
-          if (entries.some(([k, [type]]) => !type.includes("Spread") && k === key)) continue;
+          if (
+            entries.some(
+              ([k, [type]]) =>
+                !type.includes("Spread") && (k.endsWith("?") ? k.slice(0, -1) : k) === key,
+            )
+          )
+            continue;
           result[key] = value[key];
         }
         args = mergeArgs(args, node[0] === "UnnamedSpreadArg" ? [result] : { [node[1]]: result });
