@@ -113,6 +113,16 @@ export type MatchNode<T, N extends Node> =
         matched: Is.Any<T> extends true ? unknown : T;
         args: [["_", Is.Any<T> extends true ? unknown : T]];
       }
+    : N extends (
+      [
+        type: "UnnamedArg",
+        boundedNode: [type: "Or", variants: [infer N extends Node, [type: "UndefinedLiteral"]]],
+      ]
+    ) ?
+      {
+        matched: MatchNode<T, N>["matched"] | undefined;
+        args: [...MatchNode<T, N>["args"], ["_", MatchNode<T, N>["matched"] | undefined]];
+      }
     : N extends [type: "UnnamedArg", boundedNode: infer N extends Node] ?
       {
         matched: MatchNode<T, N>["matched"];
@@ -122,6 +132,17 @@ export type MatchNode<T, N extends Node> =
       {
         matched: Is.Any<T> extends true ? unknown : T;
         args: [[Name, Is.Any<T> extends true ? unknown : T]];
+      }
+    : N extends (
+      [
+        type: "NamedArg",
+        name: infer Name extends string,
+        boundedNode: [type: "Or", variants: [infer N extends Node, [type: "UndefinedLiteral"]]],
+      ]
+    ) ?
+      {
+        matched: MatchNode<T, N>["matched"] | undefined;
+        args: [...MatchNode<T, N>["args"], [Name, MatchNode<T, N>["matched"] | undefined]];
       }
     : N extends (
       [type: "NamedArg", name: infer Name extends string, boundedNode: infer N extends Node]

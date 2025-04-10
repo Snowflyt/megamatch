@@ -107,11 +107,12 @@ export const matchNode = (value: unknown, node: Node): MatchResult | null => {
       // Optional key
       if (key.endsWith("?")) {
         const realKey = key.slice(0, -1);
+
         if (!(realKey in value)) {
-          if (node[0] === "UnnamedArg") args = mergeArgs(args, [undefined]);
-          else if (node[0] === "NamedArg") args = mergeArgs(args, { [node[1]]: undefined });
+          args = mergeArgs(args, extractAllArgs(node, undefined));
           continue;
         }
+
         const result = matchNode(value[realKey], node);
         if (!result) return null;
         args = mergeArgs(args, result.args);
@@ -193,4 +194,36 @@ const mergeArgs = (
     return { ...(args1 as Record<string, unknown>), ...(args2 as Record<string, unknown>) };
 
   throw new TypeError(" matching error: Cannot mix named and unnamed arguments in a pattern");
+};
+
+const extractAllArgs = (node: Node, fill: unknown): MatchResult["args"] => {
+  const type = node[0];
+
+  if (type === "UnnamedArg") {
+    const [, boundedNode] = node;
+    if (!boundedNode) return [fill];
+    return mergeArgs(extractAllArgs(boundedNode, fill), [fill]);
+  }
+  if (type === "NamedArg") {
+    const [, name, boundedNode] = node;
+    if (!boundedNode) return { [name]: fill };
+    return mergeArgs(extractAllArgs(boundedNode, fill), { [name]: fill });
+  }
+
+  if (type === "UnnamedSpreadArg") return [fill];
+  if (type === "NamedSpreadArg") return { [node[1]]: fill };
+
+  if (type === "Tuple")
+    return node[1].reduce<MatchResult["args"]>(
+      (acc, node) => mergeArgs(acc, extractAllArgs(node, fill)),
+      [],
+    );
+
+  if (type === "Object")
+    return node[1].reduce<MatchResult["args"]>(
+      (acc, [, node]) => mergeArgs(acc, extractAllArgs(node, fill)),
+      [],
+    );
+
+  return [];
 };
