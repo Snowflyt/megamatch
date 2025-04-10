@@ -300,10 +300,12 @@ type GetObjectArgsSimple<T, Entries extends [string, Node][]> = MatchNodesSimple
     [K in keyof Entries]: Entries[K][0] extends `${string}?` ?
       Entries[K][1] extends [type: "UnnamedArg", boundedNode: infer N extends Node] ?
         [type: "UnnamedArg", boundedNode: [type: "Or", variants: [N, [type: "UndefinedLiteral"]]]]
-      : Entries[K][1] extends [type: "NamedArg", name: string, boundedNode: infer N extends Node] ?
+      : Entries[K][1] extends (
+        [type: "NamedArg", name: infer Name, boundedNode: infer N extends Node]
+      ) ?
         [
           type: "NamedArg",
-          name: Entries[K][0],
+          name: Name,
           boundedNode: [type: "Or", variants: [N, [type: "UndefinedLiteral"]]],
         ]
       : Entries[K][1]
