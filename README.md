@@ -48,7 +48,7 @@ const quickSort: (nums: number[]) => number[] = match({
 });
 ```
 
-<small>[1]: Example inspired by <a href="https://github.com/gvergnaud/ts-pattern">ts-pattern</a>.</small>
+<small>[1]: Example inspired by <a href="https://github.com/gvergnaud/ts-pattern">TS-Pattern</a>.</small>
 
 > [!WARNING]
 >
@@ -59,8 +59,9 @@ const quickSort: (nums: number[]) => number[] = match({
 - An embedded pattern matching language (DSL) with **minimalistic** syntax.
 - Smart **type inference** with parsers on both type-level and runtime.
 - **Exhaustiveness checking** ensures all cases are handled.
-- Dual API to match in both normal and **point-free** style.
-- **Optimization** in point-free style for better performance.
+- **Dual API** to match in both normal and **point-free** style.
+- Run _[fast](#performance)_ out-of-the-box with [pattern caching](#pattern-caching) (~10x faster than [TS-Pattern](https://github.com/gvergnaud/ts-pattern)).
+- Achieve **near-native speed** with [JIT compilation](#just-in-time-jit-compilation).
 - **Validate** a value against a [pattern](#patterns) with [`matches`](#matches).
 - Match a value against a pattern without exhaustive checking with [`ifMatch`](#ifmatch).
 
@@ -79,7 +80,7 @@ megamatch exports the `match` function to match a value against a pattern, which
 1. **Normal style**: The first argument is the value to match, and the second argument is an object with patterns as keys and functions as values.
 2. **Point-free style**: The only argument is an object with patterns as keys and functions as values. The function returned by `match` can be called with the value to match.
 
-The former is more common and is similar to the pattern matching syntax in other languages, while the latter is more functional and is optimized to avoids parsing patterns on each call.
+The former is more common and is similar to the pattern matching syntax in other languages, while the latter is more functional and enables [JIT compilation](#just-in-time-jit-compilation) to achieve close-to-zero runtime overhead.
 
 Both styles support specifying the return type or input type of the function using TypeScript generics with the following syntax:
 
@@ -576,6 +577,178 @@ match(color, {
 ```
 
 This can be seen as a trade-off for much cleaner pattern matching syntax, and should not be a problem in most cases.
+
+## Performance
+
+megamatch delivers **exceptional performance** out-of-the-box, typically running **10x faster** than [TS-Pattern](https://github.com/gvergnaud/ts-pattern) in normal style API. When using point-free style with JIT compilation, it approaches **near-native speed** with minimal runtime overhead. This means properly written megamatch code can perform virtually **as fast as hand-written conditionals**.
+
+megamatch uses 2 different strategies to optimize the performance of pattern matching:
+
+- **Pattern caching**: The first time a pattern is **parse**d, it is cached for future use. This eliminates the overhead of repeatedly parsing the same pattern strings across multiple executions.
+- **Just-in-time (JIT) compilation**: For point-free style API, the object with patterns is compiled to a highly optimized function that directly matches values against patterns. This compilation achieves nearly native performance (typically only 20% slower than hand-written code). The JIT system uses two distinct caches: a “**compile**” cache for individual pattern code snippets, and a “**match**” cache for the fully compiled matcher functions.
+
+Both strategies use size-limited caches (10,000 entries by default) with a simple FIFO eviction policy to prevent memory leaks. You can adjust these limits with the exported `setCacheLimit(type: "parse" | "compile" | "match", limit: number)` function.
+
+### Pattern caching
+
+In megamatch, each pattern string is parsed into a structured representation (AST) for efficient matching. This parsing process can be expensive, especially for complex patterns. However, string-based patterns also enable straightforward caching since they naturally serve as cache keys.
+
+megamatch stores parsed patterns in a global `Map` object, ensuring each unique pattern string is parsed exactly once. The cached result is then reused for all subsequent matches, significantly reducing overhead for repeated pattern usage.
+
+With this optimization alone, normal style `match` typically runs 5-10x faster than equivalent implementations in [TS-Pattern](https://github.com/gvergnaud/ts-pattern).
+
+```typescript
+import { match } from "megamatch";
+import { P, match as tsPatternMatch } from "ts-pattern";
+
+// NOTE: We use normal style API here for illustration purpose only.
+// In real world, you should use point-free style API for better performance.
+const stringifyMega = (value: unknown) =>
+  match<unknown>()(value, {
+    "number | boolean | null | undefined": (v) => String(v),
+    string: (s) => '"' + s + '"',
+    bigint: (b) => `${b}n`,
+    Array: (a) => "[" + a.map(stringifyMega).join(", ") + "]",
+    object: (o) => {
+      let result = "";
+      for (const k in o) {
+        if (result) result += ", ";
+        result += `${k}: ${stringifyMega(o[k])}`;
+      }
+      return result ? "{ " + result + " }" : "{}";
+    },
+    _: () => {
+      throw new TypeError("Cannot stringify value");
+    },
+  });
+
+const stringifyTSPattern = (value: unknown) =>
+  tsPatternMatch(value)
+    .with(P.union(P.number, P.boolean, null, undefined), (v) => String(v))
+    .with(P.string, (s) => '"' + s + '"')
+    .with(P.bigint, (b) => `${b}n`)
+    .with(P.array(), (a) => "[" + a.map(stringifyTSPattern).join(", ") + "]")
+    .with({}, (o) => {
+      let result = "";
+      for (const k in o) {
+        if (result) result += ", ";
+        result += `${k}: ${stringifyTSPattern(o[k])}`;
+      }
+      return result ? "{ " + result + " }" : "{}";
+    })
+    .otherwise(() => {
+      throw new TypeError("Cannot stringify value");
+    });
+
+// (180 nanoseconds)
+stringifyMega("foo"); // => "foo"
+// (1045 nanoseconds)
+stringifyTSPattern("foo"); // => "foo"
+
+// (2.21 microseconds)
+stringifyMega({ foo: [{ bar: 5n }, 42], baz: { qux: "quux" } });
+// => '{ foo: [{ bar: 5n }, 42], baz: { qux: "quux" } }'
+// (13.88 microseconds)
+stringifyTSPattern({ foo: [{ bar: 5n }, 42], baz: { qux: "quux" } });
+// => '{ foo: [{ bar: 5n }, 42], baz: { qux: "quux" } }'
+```
+
+### Just-in-time (JIT) compilation
+
+While pattern caching offers significant improvements for normal style API, it still requires checking values against the AST representation of patterns. For maximum performance, megamatch implements JIT compilation in its point-free style API.
+
+Consider the quickSort example—if you inspect the compiled function with `.toString()`, you’ll see it has been automatically transformed into an optimized implementation:
+
+```typescript
+const quickSortMega: (nums: number[]) => number[] = match({
+  "[]": () => [],
+  "[head, ...tail]": ({ head, tail }) => {
+    const smaller = tail.filter((n) => n <= head);
+    const greater = tail.filter((n) => n > head);
+    return [...quickSortMega(smaller), head, ...quickSortMega(greater)];
+  },
+});
+
+console.log(quickSortMega.toString());
+// function match(value) {
+//   if (
+//     Array.isArray(value) &&
+//     value.length === 0
+//   )
+//     return cases[0](value);
+//
+//   if (
+//     Array.isArray(value) &&
+//     value.length >= 1
+//   )
+//     return cases[1]({
+//       head: value[0],
+//       tail: value.slice(1, value.length)
+//     });
+//
+//   throw new NonExhaustiveError(value);
+// };
+```
+
+This compiled function executes with near-native performance, as shown in these benchmark results:
+
+```typescript
+const quickSortNative = (nums: number[]): number[] => {
+  if (nums.length === 0) return [];
+  const [head, ...tail] = nums;
+  const smaller = tail.filter((n) => n <= head!);
+  const greater = tail.filter((n) => n > head!);
+  return [...quickSortNative(smaller), head!, ...quickSortNative(greater)];
+};
+
+const quickSortMega: (nums: number[]) => number[] = match({
+  "[]": () => [],
+  "[head, ...tail]": ({ head, tail }) => {
+    const smaller = tail.filter((n) => n <= head);
+    const greater = tail.filter((n) => n > head);
+    return [...quickSortMega(smaller), head, ...quickSortMega(greater)];
+  },
+});
+
+const quickSortMegaNormal = (nums: number[]): number[] =>
+  match(nums, {
+    "[]": () => [],
+    "[head, ...tail]": ({ head, tail }) => {
+      const smaller = tail.filter((n) => n <= head);
+      const greater = tail.filter((n) => n > head);
+      return [...quickSortMegaNormal(smaller), head, ...quickSortMegaNormal(greater)];
+    },
+  });
+
+const quickSortTSPattern = (nums: number[]): number[] =>
+  tsPatternMatch(nums)
+    .with([], () => [])
+    .with([P.select("head"), ...P.array(P.select("tail"))], ({ head, tail }) => {
+      const smaller = tail.filter((n) => n <= head);
+      const greater = tail.filter((n) => n > head);
+      return [...quickSortTSPattern(smaller), head, ...quickSortTSPattern(greater)];
+    })
+    .exhaustive();
+
+const nums = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5];
+
+// (0.97 microseconds)
+stringifyNative(nums); // => [1, 1, 2, 3, 3, 4, 5, 5, 5, 6, 9]
+// (1.05 microseconds)
+stringifyMega(nums); // => [1, 1, 2, 3, 3, 4, 5, 5, 5, 6, 9]
+// (11.49 microseconds)
+stringifyMegaNormal(nums); // => [1, 1, 2, 3, 3, 4, 5, 5, 5, 6, 9]
+// (55.03 microseconds)
+stringifyTSPattern(nums); // => [1, 1, 2, 3, 3, 4, 5, 5, 5, 6, 9]
+```
+
+The results demonstrate that:
+
+- JIT-compiled point-free style (`quickSortMega`) performs nearly identically to hand-written code (`quickSortNative`).
+- Normal style API (`quickSortMegaNormal`) is still quite fast, about 10x slower than native but 5x faster than TS-Pattern.
+- All implementations remain viable for typical non-performance-critical applications.
+
+Real world scenarios rarely perform computational intensive tasks like this quicksort example, so all of their performance, including the TS-Pattern implementation, are usually acceptable. Though the performance gain of JIT compilation is quite attractive, the choice between normal style and point-free style API in your real application should be based on your preference and the readability of the code.
 
 ## FAQ
 

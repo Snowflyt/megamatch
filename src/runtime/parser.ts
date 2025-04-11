@@ -4,6 +4,7 @@
  * @internal
  */
 
+import { _caches } from "../cache";
 import type { Parser } from "../lib/parser/runtime";
 import {
   between,
@@ -35,34 +36,10 @@ import {
 } from "../lib/parser/runtime";
 import type { Node } from "../types";
 
-// Cache for parsed patterns
-let PATTERN_CACHE_MAX_SIZE = 10000;
-const patternCache = new Map<string, Node>();
-// We use a FIFO queue to evict the oldest pattern
-const patternCacheQueue: string[] = [];
-
-/**
- * Set the maximum size of the parsed pattern cache. Defaults to 10000.
- * @param size The maximum size of the pattern cache.
- */
-export function setPatternCacheLimit(size: number): void {
-  PATTERN_CACHE_MAX_SIZE = size;
-  while (patternCache.size > PATTERN_CACHE_MAX_SIZE) evictPatternCache();
-}
-
-const addToPatternCache = (pattern: string, node: Node): void => {
-  patternCache.set(pattern, node);
-  patternCacheQueue.push(pattern);
-  if (patternCache.size > PATTERN_CACHE_MAX_SIZE) evictPatternCache();
-};
-
-const evictPatternCache = (): void => {
-  const key = patternCacheQueue.shift();
-  if (key) patternCache.delete(key);
-};
+import { checkNode } from "./checker";
 
 export const parsePattern = (pattern: string): Node | null => {
-  const cached = patternCache.get(pattern);
+  const cached = _caches.parse.get(pattern);
   if (cached) return cached;
 
   const result = parse(
@@ -71,7 +48,9 @@ export const parsePattern = (pattern: string): Node | null => {
   );
   if (!result.success || result.rest) return null;
 
-  addToPatternCache(pattern, result.data);
+  checkNode(result.data);
+
+  _caches.parse.set(pattern, result.data);
   return result.data;
 };
 

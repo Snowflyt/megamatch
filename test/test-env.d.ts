@@ -8,3 +8,6 @@ declare interface WebSocket {}
 declare namespace WebAssembly {
   interface Module {}
 }
+
+// For Effect
+declare interface QueuingStrategy<T> {}

@@ -1,6 +1,6 @@
 import { NonExhaustiveError } from "./errors";
 import type { Equals, Option, Union } from "./lib/type-utils";
-import { checkNode } from "./runtime/checker";
+import { compile } from "./runtime/compile";
 import { invokeCaseFn, matchNode } from "./runtime/match";
 import { parsePattern } from "./runtime/parser";
 import type { CheckNode } from "./static/checker";
@@ -8,8 +8,6 @@ import type { ExcludeDeep } from "./static/exclude-deep";
 import type { BaseType, MatchNode } from "./static/match";
 import type { ParsePattern } from "./static/parser";
 import type { Node } from "./types";
-
-export { setPatternCacheLimit } from "./runtime/parser";
 
 /*********
  * match *
@@ -19,8 +17,6 @@ declare const _: unique symbol;
 interface _ {
   [_]: never;
 }
-
-export type MatchFn<T, R> = (value: T) => R;
 
 /**
  * Match a value against a set of patterns. Exhaustiveness check is performed at both compile-time
@@ -79,50 +75,28 @@ export function match<const T, Pattern extends string, R>(
 ): R;
 export function match<T, Pattern extends string, R>(
   cases: ValidateCases<T, Pattern, R>,
-): MatchFn<T, R>;
+): (value: T) => R;
 export function match<R, T = _>(): Equals<T, _> extends true ?
   {
     <const T, Pattern extends string>(value: T, cases: ValidateCases<T, Pattern, R>): R;
-    <T, Pattern extends string>(cases: ValidateCases<T, Pattern, R>): MatchFn<T, R>;
+    <T, Pattern extends string>(cases: ValidateCases<T, Pattern, R>): (value: T) => R;
   }
 : {
     <Pattern extends string>(value: T, cases: ValidateCases<T, Pattern, R>): R;
-    <Pattern extends string>(cases: ValidateCases<T, Pattern, R>): MatchFn<T, R>;
+    <Pattern extends string>(cases: ValidateCases<T, Pattern, R>): (value: T) => R;
   };
 export function match(
   ...args: [] | [cases: Record<string, any>] | [value: unknown, cases: Record<string, any>]
 ) {
   if (!args.length) return match;
 
-  if (args.length === 1) {
-    // Optimization to avoid parse patterns on each call
-    const parsedCases: [Node, (...args: unknown[]) => unknown][] = [];
-    for (const pattern in args[0]) {
-      const node = parsePattern(pattern);
-      if (!node) throw new TypeError(`Invalid pattern: ${pattern}`);
-
-      checkNode(node);
-
-      parsedCases.push([node, args[0][pattern] as (...args: unknown[]) => unknown]);
-    }
-
-    return function match(value: unknown) {
-      for (const [node, onMatch] of parsedCases) {
-        const result = matchCase(value, node, onMatch);
-        if (result._tag === "Some") return result.value;
-      }
-
-      throw new NonExhaustiveError(value);
-    };
-  }
+  if (args.length === 1) return compile(args[0]);
 
   const [value, cases] = args as [unknown, Record<string, (...args: unknown[]) => unknown>];
 
   for (const pattern in cases) {
     const node = parsePattern(pattern);
     if (!node) throw new TypeError(`Pattern matching error: Failed to parse pattern: ${pattern}`);
-
-    checkNode(node);
 
     const result = matchCase(value, node, cases[pattern]!);
     if (result._tag === "Some") return result.value;
@@ -258,8 +232,6 @@ export function matches(...args: [] | [pattern: string] | [value: unknown, patte
     const node = parsePattern(pattern);
     if (!node) throw new TypeError(`Invalid pattern: ${pattern}`);
 
-    checkNode(node);
-
     return function matches(value: unknown) {
       return !!matchNode(value, node);
     };
@@ -269,8 +241,6 @@ export function matches(...args: [] | [pattern: string] | [value: unknown, patte
 
   const node = parsePattern(pattern);
   if (!node) throw new TypeError(`Invalid pattern: ${pattern}`);
-
-  checkNode(node);
 
   return !!matchNode(value, node);
 }
@@ -356,8 +326,6 @@ export function ifMatch(
     const node = parsePattern(pattern);
     if (!node) throw new TypeError(`Invalid pattern: ${pattern}`);
 
-    checkNode(node);
-
     return function ifMatch(value: unknown, fn: (...args: unknown[]) => unknown) {
       const result = matchCase(value, node, fn);
       if (result._tag === "Some") return result.value;
@@ -371,8 +339,6 @@ export function ifMatch(
     const node = parsePattern(pattern);
     if (!node) throw new TypeError(`Invalid pattern: ${pattern}`);
 
-    checkNode(node);
-
     return function ifMatch(value: unknown) {
       const result = matchCase(value, node, fn as (...args: unknown[]) => unknown);
       if (result._tag === "Some") return result.value;
@@ -384,8 +350,6 @@ export function ifMatch(
 
   const node = parsePattern(pattern);
   if (!node) throw new TypeError(`Invalid pattern: ${pattern}`);
-
-  checkNode(node);
 
   const result = matchCase(value, node, fn as (...args: unknown[]) => unknown);
   if (result._tag === "Some") return result.value;
