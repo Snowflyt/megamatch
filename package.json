@@ -60,7 +60,7 @@
     "eslint": "^9.24.0",
     "eslint-config-prettier": "^10.1.2",
     "eslint-import-resolver-typescript": "^4.3.2",
-    "eslint-plugin-import-x": "^4.10.2",
+    "eslint-plugin-import-x": "^4.10.3",
     "eslint-plugin-jsdoc": "^50.6.9",
     "eslint-plugin-prettier": "^5.2.6",
     "eslint-plugin-sonarjs": "^3.0.2",
