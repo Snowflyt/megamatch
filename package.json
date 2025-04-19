@@ -1,6 +1,6 @@
 {
   "name": "megamatch",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "private": true,
   "description": "Painless pattern matching in TypeScript with type safety and minimalistic syntax.",
   "keywords": [
