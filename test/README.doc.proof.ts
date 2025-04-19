@@ -845,6 +845,52 @@ test("Patterns > Object patterns", () => {
   });
 });
 
+test("Patterns > ADT (Algebraic Data Types) patterns", () => {
+  type Option<T> = { _tag: "Some"; _0: T } | { _tag: "None" };
+
+  function Some<T>(value: T): Option<T> {
+    return { _tag: "Some", _0: value };
+  }
+  function None<T = never>(): Option<T> {
+    return { _tag: "None" };
+  }
+
+  match([Some(42), None<string>()], {
+    "[Some(_), Some(_)]": (a, b) => {
+      expect(a).to(equal<number>);
+      expect(b).to(equal<string>);
+      console.log(a, b);
+    },
+    "[Some(_), None]": (a) => {
+      expect(a).to(equal<number>);
+      console.log(a);
+    },
+    "[None, Some(_)]": (b) => {
+      expect(b).to(equal<string>);
+      console.log(b);
+    },
+    "[None, None]": () => {
+      console.log("Both are None");
+    },
+  });
+
+  const getOrNull: <T>(opt: Option<T>) => T | null = match({
+    Some: (value) => value,
+    None: () => null,
+  });
+  expect(getOrNull(Some(42))).to(equal<number | null>);
+
+  type IpAddr =
+    | { _tag: "V4"; _0: number; _1: number; _2: number; _3: number }
+    | { _tag: "V6"; _0: string };
+
+  const getAddr: (addr: IpAddr) => string = match({
+    V4: (a, b, c, d) => `${a}.${b}.${c}.${d}`,
+    V6: (addr) => addr,
+  });
+  expect(getAddr({ _tag: "V6", _0: "::1" })).to(equal<string>);
+});
+
 test("Types > `Infer<Pattern>`", () => {
   const userPattern = "{ id: number, username: string, role: 'admin' | 'user' }";
 

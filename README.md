@@ -60,6 +60,7 @@ const quickSort: (nums: number[]) => number[] = match({
 - Smart **type inference** with parsers on both type-level and runtime.
 - **Exhaustiveness checking** ensures all cases are handled.
 - **Dual API** to match in both normal and **point-free** style.
+- Concise [ADT-style pattern matching](#adt-algebraic-data-types-patterns) with `Tag(...)` syntax.
 - Run _[fast](#performance)_ out-of-the-box with [pattern caching](#pattern-caching) (~10x faster than [TS-Pattern](https://github.com/gvergnaud/ts-pattern)).
 - Achieve **near-native speed** with [JIT compilation](#just-in-time-jit-compilation).
 - **Validate** a value against a [pattern](#patterns) with [`matches`](#matches).
@@ -315,7 +316,7 @@ const result = match(value, {
 
 Named arguments are used to destructure the matched value and collect the results into an object parameter. They can be used in any pattern except in ["Or" patterns](#or-patterns-), including arrays and objects.
 
-Named arguments _must not_ start with an uppercase letter, otherwise parsing will fail. Identifiers starting with an uppercase letter are reserved for future use.
+Named arguments _must not_ start with an uppercase letter, otherwise parsing will fail. Identifiers starting with an uppercase letter are reserved for [ADT patterns](#adt-algebraic-data-types-patterns).
 
 ```typescript
 const result = match(value, {
@@ -490,6 +491,50 @@ const result = match(value, {
   "{ key: value, ...rest }": ({ value, rest }) =>
     "select the `key` property as `value` and the rest of the object",
   "{ foo: 'bar', ..._ }": (rest) => "select the rest of the object with `foo` property as 'bar'",
+});
+```
+
+### ADT (Algebraic Data Types) patterns
+
+ADT patterns enables a more concise way to match objects with a specific structure. This is similar to the [**A**lgebraic **D**ata **T**ypes](https://en.wikipedia.org/wiki/Algebraic_data_type) concept in functional programming languages.
+
+megamatch uses a special encoding for ADTs, which follows the same approach as our sister project [kind-adt](https://github.com/Snowflyt/kind-adt), so you can refer to it as “kind-adt style ADT”. In this format, an ADT is an object with a `_tag` property that indicates the type of the ADT, while the remaining properties represent the fields of the ADT. Each field name is formatted as `_${number}`, e.g., `Some(42)` is represented as `{ _tag: "Some", _0: 42 }`, and `None` is represented as `{ _tag: "None" }`. This encoding is also similar to [how ReScript encode variants](https://rescript-lang.org/docs/manual/v11.0.0/variant).
+
+An ADT pattern should follow the `Tag(...)` format, where the parentheses and their contents can be omitted if there are no fields. The `Tag` must be a valid identifier starting with an uppercase letter, as lowercase letters are reserved for [named arguments](#named-arguments). This syntax is essentially equivalent to the `"{ _tag: 'Tag', ... }"` pattern, but provides a more concise representation.
+
+```typescript
+type Option<T> = { _tag: "Some"; _0: T } | { _tag: "None" };
+
+function Some<T>(value: T): Option<T> {
+  return { _tag: "Some", _0: value };
+}
+function None<T = never>(): Option<T> {
+  return { _tag: "None" };
+}
+
+match([Some(42), None<string>()], {
+  "[Some(_), Some(_)]": (a, b) => console.log(a, b),
+  "[Some(_), None]": (a) => console.log(a),
+  "[None, Some(_)]": (b) => console.log(b),
+  "[None, None]": () => console.log("Both are None"),
+});
+```
+
+As a syntax sugar, if a key in the match object is simply an identifier starting with an uppercase letter, it will be treated as an ADT pattern, and all fields of the matched object will be automatically selected as unnamed arguments.
+
+```typescript
+const getOrNull: <T>(opt: Option<T>) => T | null = match({
+  Some: (value) => value,
+  None: () => null,
+});
+
+type IpAddr =
+  | { _tag: "V4"; _0: number; _1: number; _2: number; _3: number }
+  | { _tag: "V6"; _0: string };
+
+const getAddr: (addr: IpAddr) => string = match({
+  V4: (a, b, c, d) => `${a}.${b}.${c}.${d}`,
+  V6: (addr) => addr,
 });
 ```
 

@@ -81,6 +81,10 @@ export type BaseType<N extends Node, Readonly extends boolean = true> =
       >
   : N extends [type: "Or", variants: infer Variants extends Node[]] ?
     BaseType<Variants[number], Readonly>
+  : N extends [type: "SugaredADTRoot", tag: infer Tag] ?
+    Readonly extends true ?
+      { readonly _tag: Tag }
+    : { _tag: Tag }
   : never;
 type BaseTypeTuple<NS extends Node[], Readonly extends boolean, Acc extends unknown[] = []> =
   NS extends [infer N extends Node, ...infer Rest extends Node[]] ?
@@ -221,6 +225,16 @@ export type MatchNode<T, N extends Node> =
         matched: MatchNode<T, Variants[number]>["matched"];
         args: MatchNode<T, Variants[number]>["args"];
       }
+    : N extends [type: "SugaredADTRoot", tag: infer Tag] ?
+      Is.Any<T> extends true ?
+        {
+          matched: { _tag: Tag };
+          args: [];
+        }
+      : {
+          matched: Extract<T, { readonly _tag: Tag }>;
+          args: ExtractSugaredRootADTArgs<Extract<T, { readonly _tag: Tag }>>;
+        }
     : never
   ) extends infer R extends MatchResult ?
     R
@@ -356,4 +370,9 @@ type MatchNodesSimple<
         ];
       }
     >
+  : Acc;
+
+type ExtractSugaredRootADTArgs<ADT, Counter extends void[] = [], Acc extends unknown[] = []> =
+  ADT extends { readonly [K in `_${Counter["length"]}`]: infer T } ?
+    ExtractSugaredRootADTArgs<ADT, [...Counter, void], [...Acc, ["_", T]]>
   : Acc;

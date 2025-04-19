@@ -23,6 +23,7 @@ import {
   manyChar,
   map,
   oneOf,
+  optional,
   or,
   pair,
   parse,
@@ -33,6 +34,7 @@ import {
   stringLiteral,
   symbol,
   symbolAs,
+  upperChar,
 } from "../lib/parser/runtime";
 import type { Node } from "../types";
 
@@ -41,6 +43,15 @@ import { checkNode } from "./checker";
 export const parsePattern = (pattern: string): Node | null => {
   const cached = _caches.parse.get(pattern);
   if (cached) return cached;
+
+  const parseADTTagResult = parse(adtTagParser, pattern);
+  if (parseADTTagResult.success && !parseADTTagResult.rest.trim()) {
+    const tag = parseADTTagResult.data;
+    if ((validUpperBounds as readonly string[]).indexOf(tag) === -1) {
+      _caches.parse.set(pattern, ["SugaredADTRoot", tag]);
+      return ["SugaredADTRoot", tag];
+    }
+  }
 
   const result = parse(
     left(choice([unnamedOrAliasParser, namedOrAliasParser, orParser]), space),
@@ -64,6 +75,7 @@ const commonParsers = () => [
   wildcardParser,
   unnamedArgParser,
   namedArgParser,
+  adtParser,
   tupleParser,
   objectParser,
 ];
@@ -109,30 +121,32 @@ const stringLiteralParser: Parser<string, Node> = map(
  * Wildcard *
  ************/
 // *
+const validUpperBounds = [
+  "string",
+  "number",
+  "boolean",
+  "symbol",
+  "bigint",
+  "function",
+  "object",
+  "nonNullable",
+  "Date",
+  "RegExp",
+  "Error",
+  "ArrayBuffer",
+  "Array",
+  "Map",
+  "Set",
+  "WeakMap",
+  "WeakSet",
+  "Promise",
+  "TypedArray",
+  "DataView",
+] as const;
+
 const wildcardParser: Parser<string, Node> = choice([
   justAs("*", ["Wildcard", "unknown"]),
-  ...[
-    "string",
-    "number",
-    "boolean",
-    "symbol",
-    "bigint",
-    "function",
-    "object",
-    "nonNullable",
-    "Date",
-    "RegExp",
-    "Error",
-    "ArrayBuffer",
-    "Array",
-    "Map",
-    "Set",
-    "WeakMap",
-    "WeakSet",
-    "Promise",
-    "TypedArray",
-    "DataView",
-  ].map((type) => justAs(type, ["Wildcard", type] as Node)),
+  ...validUpperBounds.map((type) => justAs(type, ["Wildcard", type] as Node)),
 ]);
 
 // ... / ...*
@@ -155,6 +169,28 @@ const namedSpreadArgParser: Parser<string, Node> = map(
   join(pair(right(just("..."), oneOf(`${lowers}_$`)), manyChar(`${letters}${digits}_$`))),
   (v) => ["NamedSpreadArg", v],
 );
+
+/*************************************************************
+ * kind-adt style ADT (https://github.com/Snowflyt/kind-adt) *
+ *************************************************************/
+const adtTagParser = join(pair(upperChar, manyChar(`${letters}${digits}_$`)));
+const adtParser = (): Parser<string, Node> =>
+  map(
+    pair(
+      adtTagParser,
+      optional(left(right(symbol("("), sepBy(orParser, symbol(","))), symbol(")"))),
+    ),
+    ([tag, body]) => {
+      const fields = body._tag === "Some" ? body.value : [];
+      return [
+        "Object",
+        [
+          ["_tag", ["StringLiteral", tag]],
+          ...fields.map((field, i) => [`_${i}`, field] as [string, Node]),
+        ],
+      ];
+    },
+  );
 
 /*********
  * Tuple *

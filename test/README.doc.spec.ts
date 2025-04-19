@@ -529,3 +529,52 @@ test("Patterns > Object patterns", () => {
   expect(matchValue2({})).toEqual([-1, {}]);
   expect(matchValue2([])).toEqual([-1, []]);
 });
+
+test("Patterns > ADT (Algebraic Data Types) patterns", () => {
+  type Option<T> = { _tag: "Some"; _0: T } | { _tag: "None" };
+
+  function Some<T>(value: T): Option<T> {
+    return { _tag: "Some", _0: value };
+  }
+  const None: Option<never> = { _tag: "None" };
+
+  const matchValue = (pair: [Option<number>, Option<string>]) =>
+    match(pair, {
+      "[Some(_), Some(_)]": (a, b) => [0, a, b],
+      "[Some(_), None]": (a) => [1, a],
+      "[None, Some(_)]": (b) => [2, b],
+      "[None, None]": () => [-1],
+    });
+
+  expect(matchValue([Some(42), Some("foo")])).toEqual([0, 42, "foo"]);
+  expect(matchValue([Some(42), None])).toEqual([1, 42]);
+  expect(matchValue([None, Some("foo")])).toEqual([2, "foo"]);
+  expect(matchValue([None, None])).toEqual([-1]);
+
+  const getOrNull: <T>(opt: Option<T>) => T | null = match({
+    Some: (value) => value,
+    None: () => null,
+  });
+
+  expect(getOrNull(Some(42))).toEqual(42);
+  expect(getOrNull(None)).toEqual(null);
+
+  type IpAddr =
+    | { _tag: "V4"; _0: number; _1: number; _2: number; _3: number }
+    | { _tag: "V6"; _0: string };
+
+  function V4(a: number, b: number, c: number, d: number): IpAddr {
+    return { _tag: "V4", _0: a, _1: b, _2: c, _3: d };
+  }
+  function V6(addr: string): IpAddr {
+    return { _tag: "V6", _0: addr };
+  }
+
+  const getAddr: (addr: IpAddr) => string = match({
+    V4: (a, b, c, d) => `${a}.${b}.${c}.${d}`,
+    V6: (addr) => addr,
+  });
+
+  expect(getAddr(V4(127, 0, 0, 1))).toEqual("127.0.0.1");
+  expect(getAddr(V6("::1"))).toEqual("::1");
+});

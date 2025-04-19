@@ -21,6 +21,7 @@ export type Node =
   | [type: "WildcardSpread"]
   | [type: "Tuple", elements: Node[]]
   | [type: "Object", entries: [string, Node][]]
+  | [type: "SugaredADTRoot", tag: string]
   | [type: "Or", variants: Node[]];
 
 /**

@@ -16,6 +16,12 @@ export namespace Is {
     return: Any<Arg0<this>>;
   }
 
+  /* IsNever */
+  export type Never<T> = [T] extends [never] ? true : false;
+  export interface Never$ extends TypeLambda<[x: unknown], boolean> {
+    return: Never<Arg0<this>>;
+  }
+
   /* IsLiteral */
   export type Literal<T> =
     [T] extends [null | undefined] ? true

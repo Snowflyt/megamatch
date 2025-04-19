@@ -331,6 +331,27 @@ const compileNode = (path: (string | number)[], node: Node): CompileResult => {
     return [predicates, args];
   }
 
+  if (type === "SugaredADTRoot") {
+    const predicates = [
+      compileUpperBound(path, "object")!,
+      '"_tag" in ' + joinPath(path) + " && " + joinPath(path) + '._tag === "' + node[1] + '"',
+    ];
+    const arg = [
+      "_",
+      "...(() => {\n" +
+        "  const entries = [];\n" +
+        `  for (const key in ${joinPath(path)})\n` +
+        `    if (Object.prototype.hasOwnProperty.call(${joinPath(path)}, key))\n` +
+        `      entries.push([key, ${joinPath(path)}[key]]);\n` +
+        "  return entries\n" +
+        '    .filter(([key]) => key.startsWith("_") && !Object.is(Number(key.slice(1)), NaN))\n' +
+        "    .sort(([a], [b]) => Number(a.slice(1)) - Number(b.slice(1)))\n" +
+        "    .map(([, value]) => value);\n" +
+        "})()",
+    ] as CompileResult[1][number];
+    return [predicates, [arg]];
+  }
+
   if (type === "Or") {
     const predicates: string[] = [];
     for (const variant of node[1]) {

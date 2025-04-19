@@ -143,6 +143,22 @@ export const matchNode = (value: unknown, node: Node): MatchResult | null => {
     return { args };
   }
 
+  if (type === "SugaredADTRoot") {
+    if (
+      value == null ||
+      (typeof value !== "object" && typeof value !== "function") ||
+      !("_tag" in value) ||
+      value._tag !== node[1]
+    )
+      return null;
+    return {
+      args: entriesOf(value)
+        .filter(([key]) => key.startsWith("_") && !Object.is(Number(key.slice(1)), NaN))
+        .sort(([a], [b]) => Number(a.slice(1)) - Number(b.slice(1)))
+        .map(([, value]) => value),
+    };
+  }
+
   if (type === "Or") {
     for (const variant of node[1]) {
       const result = matchNode(value, variant);
@@ -240,4 +256,11 @@ const extractAllArgs = (node: Node, fill: unknown): MatchResult["args"] => {
     );
 
   return [];
+};
+
+const entriesOf = (obj: object): [string, unknown][] => {
+  const entries: [string, unknown][] = [];
+  for (const key in obj)
+    if (Object.prototype.hasOwnProperty.call(obj, key)) entries.push([key, obj[key]]);
+  return entries;
 };

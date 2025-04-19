@@ -35,13 +35,15 @@ import type {
   StringLiteral,
   Symbol,
   SymbolAs,
+  Upper,
 } from "../lib/parser/static";
-import type { Converge, List, Str } from "../lib/type-utils";
+import type { Converge, Is, List, Not, Str } from "../lib/type-utils";
 import type { Node } from "../types";
 
 export type ParsePattern<Pattern extends string> =
   Pattern extends unknown ?
-    // PERF: We flatten `pattern as name` here instead of defining their own parsers to avoid
+    Not<Is.Never<ParseSugaredADTRoot<Pattern>>> extends true ? ParseSugaredADTRoot<Pattern>
+    : // PERF: We flatten `pattern as name` here instead of defining their own parsers to avoid
     // deep instantiation
     Parse<Seq<[OrParser, Space1, Just<"as">, Space1, Just<"_">]>, Pattern> extends (
       { success: true; data: [infer N extends Node, ...unknown[]]; rest: infer Rest }
@@ -67,6 +69,17 @@ export type ParsePattern<Pattern extends string> =
       : never
     : never
   : never;
+type ParseSugaredADTRoot<Pattern extends string> =
+  Parse<ADTTagParser, Pattern> extends (
+    { success: true; data: infer Tag extends string; rest: infer Rest }
+  ) ?
+    [Tag] extends (
+      [WildcardParser extends Choice<JustAs<infer Name extends string, any>[]> ? Name : never]
+    ) ?
+      never
+    : Parse<Space, Rest> extends { rest: "" } ? [type: "SugaredADTRoot", tag: Tag]
+    : never
+  : never;
 
 type CommonParsers = [
   NullLiteralParser,
@@ -78,6 +91,7 @@ type CommonParsers = [
   WildcardParser,
   UnnamedArgParser,
   NamedArgParser,
+  ADTParser,
   TupleParser,
   ObjectParser,
 ];
@@ -191,6 +205,29 @@ type NamedSpreadArgParser = Map<
   Join<Pair<Right<Just<"...">, Just<Lower | "_" | "$">>, ManyChar<Letter | Digit | "_" | "$">>>,
   List.FillTemplate$<[type: "NamedSpreadArg", name: List._]>
 >;
+
+/*************************************************************
+ * kind-adt style ADT (https://github.com/Snowflyt/kind-adt) *
+ *************************************************************/
+type ADTTagParser = Join<Pair<Just<Upper>, ManyChar<Letter | Digit | "_" | "$">>>;
+type ADTParser = Map<
+  Or<Seq<[ADTTagParser, Symbol<"(">, SepBy<OrParser, Symbol<",">>, Symbol<")">]>, ADTTagParser>,
+  MapADTParseResult$
+>;
+interface MapADTParseResult$ extends TypeLambda1<unknown, Node> {
+  return: [
+    type: "Object",
+    entries: Arg0<this> extends (
+      [infer Tag extends Capitalize<string>, unknown, infer Fields extends Node[], unknown]
+    ) ?
+      [
+        ["_tag", [type: "StringLiteral", value: Tag]],
+        ...{ [K in keyof Fields]: [`_${K}`, Fields[K]] },
+      ]
+    : Arg0<this> extends infer Tag extends string ? [["_tag", [type: "StringLiteral", value: Tag]]]
+    : never,
+  ];
+}
 
 /*********
  * Tuple *
