@@ -1,4 +1,4 @@
-import { equal, expect, strictCover, test } from "typroof";
+import { beAny, equal, expect, strictCover, test } from "typroof";
 
 import type { Infer, Narrow } from "../src";
 import { ifMatch, match, matches } from "../src";
@@ -332,7 +332,7 @@ test("Patterns > Wildcards (`*`/spread wildcard/typed wildcards)", () => {
       return "a DataView object";
     },
     _: (v) => {
-      expect(v).to(equal<unknown>);
+      expect(v).to(beAny);
       return "any other value";
     },
   });
@@ -347,12 +347,12 @@ test("Patterns > Unnamed arguments (`_`/`..._`)", () => {
       return "select the first and third elements of a 3-element array with '+' in the middle";
     },
     "{ foo: _, bar: _ }": (foo, bar) => {
-      expect(foo).to(equal<unknown>);
-      expect(bar).to(equal<unknown>);
+      expect(foo).to(beAny);
+      expect(bar).to(beAny);
       return "select the `foo` and `bar` properties of an object";
     },
     _: (v) => {
-      expect(v).to(equal<unknown>);
+      expect(v).to(beAny);
       return "any other value";
     },
   });
@@ -380,12 +380,12 @@ test("Patterns > Unnamed arguments (`_`/`..._`)", () => {
       return "select the middle elements of an array starting with 42 and ending with 'a'";
     },
     "{ key: _, ..._ }": (key, rest) => {
-      expect(key).to(equal<unknown>);
+      expect(key).to(beAny);
       expect(rest).to(equal<{}>);
       return "select the `key` property and the rest of the object";
     },
     _: (v) => {
-      expect(v).to(equal<unknown>);
+      expect(v).to(beAny);
       return "any other value";
     },
   });
@@ -418,7 +418,7 @@ test("Patterns > Unnamed arguments (`_`/`..._`)", () => {
       return "select the first element of a 2-element array that is one of 'red', 'green' or 'blue' and the second element";
     },
     _: (v) => {
-      expect(v).to(equal<unknown>);
+      expect(v).to(beAny);
       return "any other value";
     },
   });
@@ -444,7 +444,7 @@ test("Patterns > Unnamed arguments (`_`/`..._`)", () => {
 test("Patterns > Named arguments", () => {
   match(42 as any, {
     "{ key: value, ...rest }": ({ rest, value }) => {
-      expect(value).to(equal<unknown>);
+      expect(value).to(beAny);
       expect(rest).to(equal<{}>);
       return "select the `key` property as `value` and the rest of the object";
     },
@@ -454,7 +454,7 @@ test("Patterns > Named arguments", () => {
       return "select the first element and the rest of the array";
     },
     _: (v) => {
-      expect(v).to(equal<unknown>);
+      expect(v).to(beAny);
       return "any other value";
     },
   });
@@ -478,16 +478,16 @@ test("Patterns > Named arguments", () => {
 
   match(42 as any, {
     "{ foo, bar, baz: * }": ({ bar, foo }) => {
-      expect(foo).to(equal<unknown>);
-      expect(bar).to(equal<unknown>);
+      expect(foo).to(beAny);
+      expect(bar).to(beAny);
       return "select the `foo` and `bar` properties of the object";
     },
     "{ foo: { bar: { baz } } }": ({ baz }) => {
-      expect(baz).to(equal<unknown>);
+      expect(baz).to(beAny);
       return "select the `baz` property of the nested object";
     },
     _: (v) => {
-      expect(v).to(equal<unknown>);
+      expect(v).to(beAny);
       return "any other value";
     },
   });
@@ -519,7 +519,7 @@ test("Patterns > Named arguments", () => {
       return "select the first element of a 2-element array that is one of 'red', 'green' or 'blue'";
     },
     _: (v) => {
-      expect(v).to(equal<unknown>);
+      expect(v).to(beAny);
       return "any other value";
     },
   });
@@ -556,7 +556,7 @@ test("Patterns > Or patterns (`|`)", () => {
       return "an object with `_tag` property that is either 'None', or 'Some' with a `value` property of type string";
     },
     _: (v) => {
-      expect(v).to(equal<unknown>);
+      expect(v).to(beAny);
       return "any other value";
     },
   });
@@ -590,7 +590,7 @@ test("Patterns > Or patterns (`|`)", () => {
       return "select the first element of a 1-element array that is either 1, 2 or 3";
     },
     _: (v) => {
-      expect(v).to(equal<unknown>);
+      expect(v).to(beAny);
       return "any other value";
     },
   });
@@ -670,7 +670,7 @@ test("Patterns > Literal patterns", () => {
       return "a bigint that is either 42n, -5n or 0n";
     },
     _: (v) => {
-      expect(v).to(equal<unknown>);
+      expect(v).to(beAny);
       return "any other value";
     },
   });
@@ -733,7 +733,7 @@ test("Patterns > Array patterns", () => {
       return "select the first element and the rest of the array";
     },
     _: (v) => {
-      expect(v).to(equal<unknown>);
+      expect(v).to(beAny);
       return "any other value";
     },
   });
@@ -792,7 +792,7 @@ test("Patterns > Object patterns", () => {
       return "object with an optional `key` property of type number and select it as an unnamed argument";
     },
     _: (v) => {
-      expect(v).to(equal<unknown>);
+      expect(v).to(beAny);
       return "any other value";
     },
   });
@@ -814,7 +814,7 @@ test("Patterns > Object patterns", () => {
 
   match(42 as any, {
     "{ key: value, ...rest }": ({ rest, value }) => {
-      expect(value).to(equal<unknown>);
+      expect(value).to(beAny);
       expect(rest).to(equal<{}>);
       return "select the `key` property as `value` and the rest of the object";
     },
@@ -823,7 +823,7 @@ test("Patterns > Object patterns", () => {
       return "select the rest of the object with `foo` property as 'bar'";
     },
     _: (v) => {
-      expect(v).to(equal<unknown>);
+      expect(v).to(beAny);
       return "any other value";
     },
   });
