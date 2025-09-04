@@ -778,13 +778,13 @@ const quickSortTSPattern = (nums: number[]): number[] =>
 const nums = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5];
 
 // (0.97 microseconds)
-stringifyNative(nums); // => [1, 1, 2, 3, 3, 4, 5, 5, 5, 6, 9]
+quickSortNative(nums); // => [1, 1, 2, 3, 3, 4, 5, 5, 5, 6, 9]
 // (1.05 microseconds)
-stringifyMega(nums); // => [1, 1, 2, 3, 3, 4, 5, 5, 5, 6, 9]
+quickSortMega(nums); // => [1, 1, 2, 3, 3, 4, 5, 5, 5, 6, 9]
 // (11.49 microseconds)
-stringifyMegaNormal(nums); // => [1, 1, 2, 3, 3, 4, 5, 5, 5, 6, 9]
+quickSortMegaNormal(nums); // => [1, 1, 2, 3, 3, 4, 5, 5, 5, 6, 9]
 // (55.03 microseconds)
-stringifyTSPattern(nums); // => [1, 1, 2, 3, 3, 4, 5, 5, 5, 6, 9]
+quickSortTSPattern(nums); // => [1, 1, 2, 3, 3, 4, 5, 5, 5, 6, 9]
 ```
 
 The results demonstrate that:
