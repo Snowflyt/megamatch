@@ -1,7 +1,8 @@
 // @ts-check
 
 import eslint from "@eslint/js";
-import importX from "eslint-plugin-import-x";
+import { defineConfig } from "eslint/config";
+import { importX } from "eslint-plugin-import-x";
 import jsdoc from "eslint-plugin-jsdoc";
 import prettierRecommended from "eslint-plugin-prettier/recommended";
 import sonarjs from "eslint-plugin-sonarjs";
@@ -9,13 +10,13 @@ import sortDestructureKeys from "eslint-plugin-sort-destructure-keys";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
-export default tseslint.config(
+export default defineConfig(
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
   jsdoc.configs["flat/recommended-typescript-error"],
-  importX.flatConfigs.recommended,
-  importX.flatConfigs.typescript,
+  /** @type {import("eslint").Linter.Config} */ (importX.flatConfigs.recommended),
+  /** @type {import("eslint").Linter.Config} */ (importX.flatConfigs.typescript),
   prettierRecommended,
   sonarjs.configs.recommended,
   {
