@@ -1,7 +1,7 @@
 import { beAny, equal, expect, strictCover, test } from "typroof";
 
 import type { Infer, Narrow } from "../src";
-import { ifMatch, match, matches } from "../src";
+import { ifMatch, match, matchArgs, matches } from "../src";
 
 test("banner", () => {
   type Data = { type: "text"; content: string } | { type: "img"; src: string };
@@ -83,6 +83,27 @@ test("Quickstart", () => {
   match<void, number>()({ _: () => {} })(42);
   // @ts-expect-error
   match<void, string>()({ _: () => {} })(42);
+});
+
+test("API Reference > `matchArgs`", () => {
+  type IpAddr =
+    | { _tag: "V4"; _0: number; _1: number; _2: number; _3: number }
+    | { _tag: "V6"; _0: string };
+
+  function createArrayEquals<A>(equals: (a: A, b: A) => boolean) {
+    return (as: A[], bs: A[]): boolean =>
+      as.length === bs.length && as.every((a, i) => equals(a, bs[i]!));
+  }
+
+  const ipAddrArrayEquals = createArrayEquals<IpAddr>(
+    matchArgs({
+      "[V4(_, _, _, _), V4(_, _, _, _)]": (a1, a2, a3, a4, b1, b2, b3, b4) =>
+        a1 === b1 && a2 === b2 && a3 === b3 && a4 === b4,
+      "[V6(_), V6(_)]": (addr1, addr2) => addr1 === addr2,
+      _: () => false,
+    }),
+  );
+  expect(ipAddrArrayEquals).to(equal<(as: IpAddr[], bs: IpAddr[]) => boolean>);
 });
 
 test("API Reference > `matches`", () => {

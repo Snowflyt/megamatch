@@ -76,9 +76,9 @@ npm install megamatch
 
 ## Quickstart
 
-megamatch exports the `match` function to match a value against a pattern, which can be used in **2** different ways:
+megamatch exports the `match`/`matchArgs` function to match a value or variadic arguments against a pattern, which can be used in **2** different ways:
 
-1. **Normal style**: The first argument is the value to match, and the second argument is an object with patterns as keys and functions as values.
+1. **Normal style**: The first argument is the value to match, and the second argument is an object with patterns as keys and functions as values. (only available in `match`)
 2. **Point-free style**: The only argument is an object with patterns as keys and functions as values. The function returned by `match` can be called with the value to match.
 
 The former is more common and is similar to the pattern matching syntax in other languages, while the latter is more functional and enables [JIT compilation](#just-in-time-jit-compilation) to achieve close-to-zero runtime overhead.
@@ -93,11 +93,15 @@ const result = match<ReturnType, InputType>()(value, ...);
 const result = match<ReturnType>()(value, ...);
 ```
 
-Aside from `match`, [`matches`](#matches) and [`ifMatch`](#ifmatch) also support both styles and allow specifying the return type or input type of the function using the same syntax.
+`matchArgs` also supports specifying the return type or input type of the function like `match`, except that `InputType` expects a tuple type representing the types of the input arguments.
+
+More information about `matchArgs` can be found in the [`matchArgs`](#matchargs) section.
+
+Aside from `match` and `matchArgs`, [`matches`](#matches) and [`ifMatch`](#ifmatch) also support both styles and allow specifying the return type or input type of the function using the same syntax.
 
 Inside the object, each pattern is represented as a string key, and the corresponding function defines the behavior if the pattern matches. The patterns are generally a DSL (Domain-Specific Language) that resembles JavaScript destructuring syntax, supporting rest properties/elements and object shorthand properties, but with some additional features. See the [Patterns](#patterns) section for more details.
 
-The input arguments of the functions are decided by the following rules:
+The input arguments of the functions are determined by the following rules:
 
 1. If no “argument” is selected in the pattern, the function will receive the whole matched value as its first argument.
 2. If only unnamed arguments (`_`) are selected, the function will receive each of the matched values as separate arguments by the order they appear in the pattern. For example, `"[_, '+', _]": (left, right) => ...` will receive two arguments, the first and third ones of the matched array; `"{ foo: _, bar: { baz: _ } as _ }": (foo, baz, bar) => ...` will receive three arguments, each `_` representing a matched value.
@@ -105,7 +109,7 @@ The input arguments of the functions are decided by the following rules:
 
 Note that unnamed and named arguments cannot be mixed in the same pattern, otherwise an error will be thrown at both runtime and type level.
 
-`match` supports exhaustive checking, meaning that if a pattern is not matched, you’ll see TypeScript complains a type error right away in your code editor:
+`match` supports exhaustive checking, meaning that if a pattern is not matched, you’ll see TypeScript report a type error right away in your code editor:
 
 ```typescript
 const result = match(value, {
@@ -116,7 +120,7 @@ const result = match(value, {
 });
 ```
 
-To avoid this, provide a “catch-all” pattern with `*` or `_` at the end of the object:
+To avoid this, add a “catch-all” case using `*` or `_` as the last key:
 
 ```typescript
 const result = match(value, {
@@ -129,6 +133,32 @@ const result = match(value, {
 ## API Reference
 
 Apart from the `match` function, megamatch also provides some utility functions with patterns.
+
+### `matchArgs`
+
+`matchArgs` is similar to `match`, but it matches variadic arguments instead of a single value. The input type of the function can be specified as a tuple of the argument types. This is especially useful when a callback function with multiple arguments is expected.
+
+```typescript
+import { matchArgs } from "megamatch";
+
+type IpAddr =
+  | { _tag: "V4"; _0: number; _1: number; _2: number; _3: number }
+  | { _tag: "V6"; _0: string };
+
+function createArrayEquals<A>(equals: (a: A, b: A) => boolean) {
+  return (as: A[], bs: A[]): boolean =>
+    as.length === bs.length && as.every((a, i) => equals(a, bs[i]));
+}
+
+const ipAddrArrayEquals = createArrayEquals<IpAddr>(
+  matchArgs({
+    "[V4(_, _, _, _), V4(_, _, _, _)]": (a1, a2, a3, a4, b1, b2, b3, b4) =>
+      a1 === b1 && a2 === b2 && a3 === b3 && a4 === b4,
+    "[V6(_), V6(_)]": (addr1, addr2) => addr1 === addr2,
+    _: () => false,
+  }),
+);
+```
 
 ### `matches`
 

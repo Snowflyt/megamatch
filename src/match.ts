@@ -105,6 +105,64 @@ export function match(
   throw new NonExhaustiveError(value);
 }
 
+/**
+ * Match variadic arguments against a set of patterns. Exhaustiveness check is performed at both
+ * compile-time and runtime. The function will throw a {@linkcode NonExhaustiveError} if no pattern
+ * matches the arguments.
+ *
+ * This function accepts an object with patterns as keys and functions as values, and returns a
+ * function that can be called with the arguments to match.
+ *
+ * This function supports specifying the return type or the type of the arguments to match via the
+ * `match<ReturnType, ArgumentsType>()(...)` syntax, where `ArgumentsType` is optional.
+ *
+ * [Read the documentation on GitHub.](https://github.com/Snowflyt/megamatch#matchArgs)
+ * @param cases An object containing the patterns as keys and the corresponding functions to call
+ * when the pattern matches.
+ * @returns A function that can be called with the arguments to match.
+ *
+ * @throws {NonExhaustiveError} if no pattern matches the arguments.
+ *
+ * @example
+ * ```typescript
+ * type IpAddr =
+ *   | { _tag: "V4"; _0: number; _1: number; _2: number; _3: number }
+ *   | { _tag: "V6"; _0: string };
+ *
+ * function createArrayEquals<A>(equals: (a: A, b: A) => boolean) {
+ *   return (as: A[], bs: A[]): boolean =>
+ *     as.length === bs.length && as.every((a, i) => equals(a, bs[i]));
+ * }
+ *
+ * const ipAddrArrayEquals = createArrayEquals<IpAddr>(
+ *   matchArgs({
+ *     "[V4(_, _, _, _), V4(_, _, _, _)]": (a1, a2, a3, a4, b1, b2, b3, b4) =>
+ *       a1 === b1 && a2 === b2 && a3 === b3 && a4 === b4,
+ *     "[V6(_), V6(_)]": (addr1, addr2) => addr1 === addr2,
+ *     _: () => false,
+ *   }),
+ * );
+ * ```
+ */
+export function matchArgs<Args extends readonly unknown[], Pattern extends string, R>(
+  cases: ValidateCases<Args, Pattern, R>,
+): (...args: Args) => R;
+export function matchArgs<R, Args extends readonly unknown[] | _ = _>(): Equals<Args, _> extends (
+  true
+) ?
+  <Args extends readonly unknown[], Pattern extends string>(
+    cases: ValidateCases<Args, Pattern, R>,
+  ) => (...args: Args) => R
+: Args extends readonly unknown[] ?
+  <Pattern extends string>(cases: ValidateCases<Args, Pattern, R>) => (...args: Args) => R
+: never;
+export function matchArgs(
+  ...args: [] | [cases: Record<string, any>]
+): (...args: never[]) => unknown {
+  if (!args.length) return matchArgs;
+  return compile(args[0], true);
+}
+
 const matchCase = (
   value: unknown,
   node: Node,

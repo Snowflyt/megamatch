@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { NonExhaustiveError, ifMatch, match, matches } from "../src";
+import { NonExhaustiveError, ifMatch, match, matchArgs, matches } from "../src";
 
 test("banner", () => {
   type Data = { type: "text"; content: string } | { type: "img"; src: string };
@@ -76,6 +76,44 @@ test("Quickstart", () => {
       _: (v) => v as any,
     })({ type: "ok", data: { type: "img", src: "image.png" } }),
   ).toEqual({ type: "ok", data: { type: "img", src: "image.png" } });
+});
+
+test("API Reference > `matchArgs`", () => {
+  type IpAddr =
+    | { _tag: "V4"; _0: number; _1: number; _2: number; _3: number }
+    | { _tag: "V6"; _0: string };
+
+  function V4(a: number, b: number, c: number, d: number): IpAddr {
+    return { _tag: "V4", _0: a, _1: b, _2: c, _3: d };
+  }
+  function V6(addr: string): IpAddr {
+    return { _tag: "V6", _0: addr };
+  }
+
+  function createArrayEquals<A>(equals: (a: A, b: A) => boolean) {
+    return (as: A[], bs: A[]): boolean =>
+      as.length === bs.length && as.every((a, i) => equals(a, bs[i]!));
+  }
+
+  const ipAddrArrayEquals = createArrayEquals<IpAddr>(
+    matchArgs({
+      "[V4(_, _, _, _), V4(_, _, _, _)]": (a1, a2, a3, a4, b1, b2, b3, b4) =>
+        a1 === b1 && a2 === b2 && a3 === b3 && a4 === b4,
+      "[V6(_), V6(_)]": (addr1, addr2) => addr1 === addr2,
+      _: () => false,
+    }),
+  );
+
+  expect(ipAddrArrayEquals([V4(127, 0, 0, 1), V6("::1")], [V4(127, 0, 0, 1), V6("::1")])).toBe(
+    true,
+  );
+  expect(ipAddrArrayEquals([V4(127, 0, 0, 1)], [V4(127, 0, 0, 1), V6("::1")])).toBe(false);
+  expect(ipAddrArrayEquals([V4(127, 0, 0, 1), V6("::1")], [V4(127, 0, 0, 2), V6("::1")])).toBe(
+    false,
+  );
+  expect(ipAddrArrayEquals([V4(127, 0, 0, 1), V6("::1")], [V6("::1"), V4(127, 0, 0, 1)])).toBe(
+    false,
+  );
 });
 
 test("API Reference > `matches`", () => {
