@@ -1,5 +1,5 @@
 import { match as arkMatch } from "arktype";
-import { pipe } from "effect";
+import { Match, pipe } from "effect";
 import { P, match as tsPatternMatch } from "ts-pattern";
 import { bench, describe } from "vitest";
 
@@ -56,7 +56,6 @@ const quickSortTSPattern = (nums: number[]): number[] =>
     .exhaustive();
 
 const quickSortArk: (nums: number[]) => number[] = arkMatch
-  .in<number[]>()
   .case([], () => [])
   .case(["number", "...", "number[]"], ([head, ...tail]) => {
     const smaller = tail.filter((n) => n <= head);
@@ -67,6 +66,58 @@ const quickSortArk: (nums: number[]) => number[] = arkMatch
     throw new Error("absurd case");
   });
 
+const quickSortArkPipe = (nums: number[]): number[] =>
+  pipe(
+    nums,
+    arkMatch
+      .case([], () => [])
+      .case(["number", "...", "number[]"], ([head, ...tail]) => {
+        const smaller = tail.filter((n) => n <= head);
+        const greater = tail.filter((n) => n > head);
+        return [...quickSortArkPipe(smaller), head, ...quickSortArkPipe(greater)];
+      })
+      .default(() => {
+        throw new Error("absurd case");
+      }),
+  );
+
+const quickSortEffect: (nums: number[]) => number[] = Match.type().pipe(
+  Match.when(
+    (value: unknown): value is [] => Array.isArray(value) && value.length === 0,
+    () => [],
+  ),
+  Match.when(
+    (value: unknown): value is [number, ...number[]] => Array.isArray(value) && value.length >= 1,
+    ([head, ...tail]) => {
+      const smaller = tail.filter((n) => n <= head);
+      const greater = tail.filter((n) => n > head);
+      return [...quickSortEffect(smaller), head, ...quickSortEffect(greater)];
+    },
+  ),
+  Match.orElse(() => {
+    throw new Error("absurd case");
+  }),
+);
+
+const quickSortEffectNormal = (nums: number[]): number[] =>
+  Match.value(nums).pipe(
+    Match.when(
+      (value: unknown): value is [] => Array.isArray(value) && value.length === 0,
+      () => [],
+    ),
+    Match.when(
+      (value: unknown): value is [number, ...number[]] => Array.isArray(value) && value.length >= 1,
+      ([head, ...tail]) => {
+        const smaller = tail.filter((n) => n <= head);
+        const greater = tail.filter((n) => n > head);
+        return [...quickSortEffectNormal(smaller), head, ...quickSortEffectNormal(greater)];
+      },
+    ),
+    Match.orElse(() => {
+      throw new Error("absurd case");
+    }),
+  );
+
 /* Bench */
 describe("quickSort([])", () => {
   const nums: number[] = [];
@@ -75,7 +126,8 @@ describe("quickSort([])", () => {
   bench("megamatch (normal)", () => void quickSortMegaNormal(nums));
   bench("megamatch (pipe)", () => void quickSortMegaPipe(nums));
   bench("TS-Pattern", () => void quickSortTSPattern(nums));
-  bench("ArkType", () => void quickSortArk(nums));
+  bench("ArkType (JIT)", () => void quickSortArk(nums));
+  bench("ArkType (pipe)", () => void quickSortArkPipe(nums));
 });
 
 describe("quickSort([1])", () => {
@@ -85,7 +137,8 @@ describe("quickSort([1])", () => {
   bench("megamatch (normal)", () => void quickSortMegaNormal(nums));
   bench("megamatch (pipe)", () => void quickSortMegaPipe(nums));
   bench("TS-Pattern", () => void quickSortTSPattern(nums));
-  bench("ArkType", () => void quickSortArk(nums));
+  bench("ArkType (JIT)", () => void quickSortArk(nums));
+  bench("ArkType (pipe)", () => void quickSortArkPipe(nums));
 });
 
 describe("quickSort([2, 1])", () => {
@@ -95,7 +148,8 @@ describe("quickSort([2, 1])", () => {
   bench("megamatch (normal)", () => void quickSortMegaNormal(nums));
   bench("megamatch (pipe)", () => void quickSortMegaPipe(nums));
   bench("TS-Pattern", () => void quickSortTSPattern(nums));
-  bench("ArkType", () => void quickSortArk(nums));
+  bench("ArkType (JIT)", () => void quickSortArk(nums));
+  bench("ArkType (pipe)", () => void quickSortArkPipe(nums));
 });
 
 describe("quickSort([5, 3, 8, 1, 2])", () => {
@@ -105,7 +159,8 @@ describe("quickSort([5, 3, 8, 1, 2])", () => {
   bench("megamatch (normal)", () => void quickSortMegaNormal(nums));
   bench("megamatch (pipe)", () => void quickSortMegaPipe(nums));
   bench("TS-Pattern", () => void quickSortTSPattern(nums));
-  bench("ArkType", () => void quickSortArk(nums));
+  bench("ArkType (JIT)", () => void quickSortArk(nums));
+  bench("ArkType (pipe)", () => void quickSortArkPipe(nums));
 });
 
 describe("quickSort([3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5])", () => {
@@ -115,5 +170,6 @@ describe("quickSort([3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5])", () => {
   bench("megamatch (normal)", () => void quickSortMegaNormal(nums));
   bench("megamatch (pipe)", () => void quickSortMegaPipe(nums));
   bench("TS-Pattern", () => void quickSortTSPattern(nums));
-  bench("ArkType", () => void quickSortArk(nums));
+  bench("ArkType (JIT)", () => void quickSortArk(nums));
+  bench("ArkType (pipe)", () => void quickSortArkPipe(nums));
 });
