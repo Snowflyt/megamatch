@@ -25,6 +25,32 @@ export type Node =
   | [type: "Or", variants: Node[]];
 
 /**
+ * @private
+ * @internal
+ */
+export type ValidUpperBoundStringLiteral =
+  | "string"
+  | "number"
+  | "boolean"
+  | "symbol"
+  | "bigint"
+  | "function"
+  | "object"
+  | "nonNullable"
+  | "Date"
+  | "RegExp"
+  | "Error"
+  | "Array"
+  | "Map"
+  | "Set"
+  | "WeakMap"
+  | "WeakSet"
+  | "Promise"
+  | "TypedArray"
+  | "ArrayBuffer"
+  | "DataView";
+
+/**
  * Infer the type of value represented by a pattern.
  * @param Pattern The pattern to infer the type from.
  * @param Readonly Whether to make the inferred type readonly. Defaults to `true`.

@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 
 import { NonExhaustiveError, ifMatch, match, matchArgs, matches } from "../src";
+import { _, as, bigint, boolean, number, object, or, p, sel, string } from "../src/patterns";
 
 test("banner", () => {
   type Data = { type: "text"; content: string } | { type: "img"; src: string };
@@ -615,4 +616,63 @@ test("Patterns > ADT (Algebraic Data Types) patterns", () => {
 
   expect(getAddr(V4(127, 0, 0, 1))).toEqual("127.0.0.1");
   expect(getAddr(V6("::1"))).toEqual("::1");
+});
+
+test("Pattern Builder API", () => {
+  const quickSort: (nums: number[]) => number[] = match({
+    [p([])]: () => [],
+    [p([sel("head"), ...sel("tail")])]: ({ head, tail }) => {
+      const smaller = tail.filter((n) => n <= head);
+      const greater = tail.filter((n) => n > head);
+      return [...quickSort(smaller), head, ...quickSort(greater)];
+    },
+  });
+
+  expect(quickSort([3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5])).toEqual([1, 1, 2, 3, 3, 4, 5, 5, 5, 6, 9]);
+
+  type Data = { type: "text"; content: string } | { type: "img"; src: string };
+  type Result = { type: "ok"; data: Data } | { type?: "error" | "fatal"; message: string };
+
+  const getHTML = (result: Result) =>
+    match(result, {
+      [p({ "type?": or("error", "fatal") })]: (res) =>
+        `<p>Oops! Something went wrong: ${res.message}</p>`,
+      [p({ type: "ok", data: { type: "text", content: _ } })]: (content) => `<p>${content}</p>`,
+      [p({ type: "ok", data: as({ type: "img", src: sel("src") }, "data") })]: ({ data, src }) =>
+        `<img src="${src}" data="${JSON.stringify(data)}" />`,
+    });
+
+  expect(getHTML({ message: "error" })).toEqual(`<p>Oops! Something went wrong: error</p>`);
+  expect(getHTML({ type: "fatal", message: "fatal" })).toEqual(
+    `<p>Oops! Something went wrong: fatal</p>`,
+  );
+  expect(getHTML({ type: "ok", data: { type: "text", content: "hello" } })).toEqual(`<p>hello</p>`);
+  expect(getHTML({ type: "ok", data: { type: "img", src: "image.png" } })).toEqual(
+    `<img src="image.png" data="${JSON.stringify({ type: "img", src: "image.png" })}" />`,
+  );
+
+  const stringify = match({
+    [p(or(number, boolean, null, undefined))]: (v) => String(v),
+    [p(string)]: (s) => '"' + s + '"',
+    [p(bigint)]: (b) => `${b}n`,
+    [p(Array)]: (a): string => "[" + a.map(stringify).join(", ") + "]",
+    [p(object)]: (o) => {
+      let result = "";
+      for (const k in o) {
+        if (result) result += ", ";
+        result += `${k}: ${stringify(o[k])}`;
+      }
+      return result ? "{ " + result + " }" : "{}";
+    },
+    _: () => {
+      throw new TypeError("Cannot stringify value");
+    },
+  });
+
+  expect(stringify("foo")).toEqual('"foo"');
+  expect(stringify(5n)).toEqual("5n");
+  expect(stringify({ nestedValue: 5n })).toEqual("{ nestedValue: 5n }");
+  expect(stringify({ foo: [{ bar: 5n }, 42], baz: { qux: "quux" } })).toEqual(
+    '{ foo: [{ bar: 5n }, 42], baz: { qux: "quux" } }',
+  );
 });

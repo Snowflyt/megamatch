@@ -2,6 +2,7 @@ import { beAny, equal, expect, strictCover, test } from "typroof";
 
 import type { Infer, Narrow } from "../src";
 import { ifMatch, match, matchArgs, matches } from "../src";
+import { _, as, or, p, sel } from "../src/patterns";
 
 test("banner", () => {
   type Data = { type: "text"; content: string } | { type: "img"; src: string };
@@ -944,4 +945,42 @@ test("Types > About type narrowing of the input value", () => {
       return "unknown";
     },
   });
+});
+
+test("Pattern Builder API", () => {
+  const quickSort: (nums: number[]) => number[] = match({
+    [p([])]: (v) => {
+      expect(v).to(equal<[]>);
+      return [];
+    },
+    [p([sel("head"), ...sel("tail")])]: ({ head, tail }) => {
+      expect(head).to(equal<number>);
+      expect(tail).to(equal<number[]>);
+      const smaller = tail.filter((n) => n <= head);
+      const greater = tail.filter((n) => n > head);
+      return [...quickSort(smaller), head, ...quickSort(greater)];
+    },
+  });
+
+  type Data = { type: "text"; content: string } | { type: "img"; src: string };
+  type Result = { type: "ok"; data: Data } | { type?: "error" | "fatal"; message: string };
+
+  const result = { message: "error" } as Result;
+
+  const html = match(result, {
+    [p({ "type?": or("error", "fatal") })]: (res) => {
+      expect(res).to(equal<{ type?: "error" | "fatal"; message: string }>);
+      return `<p>Oops! Something went wrong: ${res.message}</p>`;
+    },
+    [p({ type: "ok", data: { type: "text", content: _ } })]: (content) => {
+      expect(content).to(equal<string>);
+      return `<p>${content}</p>`;
+    },
+    [p({ type: "ok", data: as({ type: "img", src: sel("src") }, "data") })]: ({ data, src }) => {
+      expect(data).to(equal<{ type: "img"; src: string }>);
+      expect(src).to(equal<string>);
+      return `<img src="${src}" />`;
+    },
+  });
+  expect(html).to(equal<string>);
 });

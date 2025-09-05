@@ -4,6 +4,7 @@ import { P, match as tsPatternMatch } from "ts-pattern";
 import { bench, describe } from "vitest";
 
 import { match } from "../src";
+import { bigint, boolean, number, object, or, p, string } from "../src/patterns";
 
 const stringify = (value: unknown) => {
   if (
@@ -45,6 +46,24 @@ const stringifyMega = match({
   },
 });
 
+const stringifyMegaP = match({
+  [p(or(number, boolean, null, undefined))]: (v) => String(v),
+  [p(string)]: (s) => '"' + s + '"',
+  [p(bigint)]: (b) => `${b}n`,
+  [p(Array)]: (a): string => "[" + a.map(stringifyMegaP).join(", ") + "]",
+  [p(object)]: (o) => {
+    let result = "";
+    for (const k in o) {
+      if (result) result += ", ";
+      result += `${k}: ${stringifyMegaP(o[k])}`;
+    }
+    return result ? "{ " + result + " }" : "{}";
+  },
+  _: () => {
+    throw new TypeError("Cannot stringify value");
+  },
+});
+
 const stringifyMegaNormal = (value: unknown): string =>
   match(value, {
     "number | boolean | null | undefined": (v) => String(v),
@@ -56,6 +75,25 @@ const stringifyMegaNormal = (value: unknown): string =>
       for (const k in o) {
         if (result) result += ", ";
         result += `${k}: ${stringifyMegaNormal(o[k])}`;
+      }
+      return result ? "{ " + result + " }" : "{}";
+    },
+    _: () => {
+      throw new TypeError("Cannot stringify value");
+    },
+  });
+
+const stringifyMegaNormalP = (value: unknown): string =>
+  match(value, {
+    [p(or(number, boolean, null, undefined))]: (v) => String(v),
+    [p(string)]: (s) => '"' + s + '"',
+    [p(bigint)]: (b) => `${b}n`,
+    [p(Array)]: (a): string => "[" + a.map(stringifyMegaNormalP).join(", ") + "]",
+    [p(object)]: (o) => {
+      let result = "";
+      for (const k in o) {
+        if (result) result += ", ";
+        result += `${k}: ${stringifyMegaNormalP(o[k])}`;
       }
       return result ? "{ " + result + " }" : "{}";
     },
@@ -77,6 +115,28 @@ const stringifyMegaPipe = (value: unknown): string =>
         for (const k in o) {
           if (result) result += ", ";
           result += `${k}: ${stringifyMegaPipe(o[k])}`;
+        }
+        return result ? "{ " + result + " }" : "{}";
+      },
+      _: () => {
+        throw new TypeError("Cannot stringify value");
+      },
+    }),
+  );
+
+const stringifyMegaPipeP = (value: unknown): string =>
+  pipe(
+    value,
+    match({
+      [p(or(number, boolean, null, undefined))]: (v) => String(v),
+      [p(string)]: (s) => '"' + s + '"',
+      [p(bigint)]: (b) => `${b}n`,
+      [p(Array)]: (a) => "[" + a.map(stringifyMegaPipeP).join(", ") + "]",
+      [p(object)]: (o) => {
+        let result = "";
+        for (const k in o) {
+          if (result) result += ", ";
+          result += `${k}: ${stringifyMegaPipeP(o[k])}`;
         }
         return result ? "{ " + result + " }" : "{}";
       },
@@ -207,8 +267,11 @@ const stringifyEffectPipe = (value: unknown): string =>
 describe('stringify("foo")', () => {
   bench("native", () => void stringify("foo"));
   bench("megamatch (JIT)", () => void stringifyMega("foo"));
+  bench("megamatch (JIT/p)", () => void stringifyMegaP("foo"));
   bench("megamatch (normal)", () => void stringifyMegaNormal("foo"));
+  bench("megamatch (normal/p)", () => void stringifyMegaNormalP("foo"));
   bench("megamatch (pipe)", () => void stringifyMegaPipe("foo"));
+  bench("megamatch (pipe/p)", () => void stringifyMegaPipeP("foo"));
   bench("TS-Pattern", () => void stringifyTSPattern("foo"));
   bench("ArkType (JIT)", () => void stringifyArk("foo"));
   bench("ArkType (pipe)", () => void stringifyArkPipe("foo"));
@@ -220,8 +283,11 @@ describe('stringify("foo")', () => {
 describe("stringify(5n)", () => {
   bench("native", () => void stringify(5n));
   bench("megamatch (JIT)", () => void stringifyMega(5n));
+  bench("megamatch (JIT/p)", () => void stringifyMegaP(5n));
   bench("megamatch (normal)", () => void stringifyMegaNormal(5n));
+  bench("megamatch (normal/p)", () => void stringifyMegaNormalP(5n));
   bench("megamatch (pipe)", () => void stringifyMegaPipe(5n));
+  bench("megamatch (pipe/p)", () => void stringifyMegaPipeP(5n));
   bench("TS-Pattern", () => void stringifyTSPattern(5n));
   bench("ArkType (JIT)", () => void stringifyArk(5n));
   bench("ArkType (pipe)", () => void stringifyArkPipe(5n));
@@ -233,8 +299,11 @@ describe("stringify(5n)", () => {
 describe("stringify({ nestedValue: 5n })", () => {
   bench("native", () => void stringify({ nestedValue: 5n }));
   bench("megamatch (JIT)", () => void stringifyMega({ nestedValue: 5n }));
+  bench("megamatch (JIT/p)", () => void stringifyMegaP({ nestedValue: 5n }));
   bench("megamatch (normal)", () => void stringifyMegaNormal({ nestedValue: 5n }));
+  bench("megamatch (normal/p)", () => void stringifyMegaNormalP({ nestedValue: 5n }));
   bench("megamatch (pipe)", () => void stringifyMegaPipe({ nestedValue: 5n }));
+  bench("megamatch (pipe/p)", () => void stringifyMegaPipeP({ nestedValue: 5n }));
   bench("TS-Pattern", () => void stringifyTSPattern({ nestedValue: 5n }));
   bench("ArkType (JIT)", () => void stringifyArk({ nestedValue: 5n }));
   bench("ArkType (pipe)", () => void stringifyArkPipe({ nestedValue: 5n }));
@@ -247,8 +316,11 @@ describe("stringify({ foo: [{ bar: 5n }, 42], baz: { qux: 'quux' } })", () => {
   const value = { foo: [{ bar: 5n }, 42], baz: { qux: "quux" } };
   bench("native", () => void stringify(value));
   bench("megamatch (JIT)", () => void stringifyMega(value));
+  bench("megamatch (JIT/p)", () => void stringifyMegaP(value));
   bench("megamatch (normal)", () => void stringifyMegaNormal(value));
+  bench("megamatch (normal/p)", () => void stringifyMegaNormalP(value));
   bench("megamatch (pipe)", () => void stringifyMegaPipe(value));
+  bench("megamatch (pipe/p)", () => void stringifyMegaPipeP(value));
   bench("TS-Pattern", () => void stringifyTSPattern(value));
   bench("ArkType (JIT)", () => void stringifyArk(value));
   bench("ArkType (pipe)", () => void stringifyArkPipe(value));

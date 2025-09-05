@@ -48,6 +48,8 @@ const quickSort: (nums: number[]) => number[] = match({
 });
 ```
 
+Don’t like string-based patterns? No problem! Check out the [Pattern Builder API](#pattern-builder-api) as an alternative.
+
 <small>[1]: Example inspired by <a href="https://github.com/gvergnaud/ts-pattern">TS-Pattern</a>.</small>
 
 > [!WARNING]
@@ -129,6 +131,21 @@ const result = match(value, {
   _: (v) => "any other value", // catch-all pattern
 });
 ```
+
+Alternatively, you can use the [Pattern Builder API](#pattern-builder-api) if you don’t like string-based patterns:
+
+```typescript
+import { match } from "megamatch";
+import { p, or, _ } from "megamatch/patterns";
+
+const result = match(value, {
+  [p({ "type?": or("error", "fatal") })]: (res) => "an error or fatal result",
+  [p({ type: "ok", data: { type: "text", content: _ } })]: (content) => "a text result",
+  _: (v) => "any other value", // catch-all pattern
+});
+```
+
+See the [Pattern Builder API](#pattern-builder-api) section for details.
 
 ## API Reference
 
@@ -652,6 +669,65 @@ match(color, {
 ```
 
 This can be seen as a trade-off for much cleaner pattern matching syntax, and should not be a problem in most cases.
+
+## Pattern Builder API
+
+String-based patterns are concise and easy to read, but they usually lack syntax highlighting and code completion in editors. To address this, megamatch offers a Pattern Builder API to construct patterns programmatically with a small set of helpers.
+
+```typescript
+import { match } from "megamatch";
+import { p, _, as, or, sel, bigint, boolean, number, object, string } from "megamatch/patterns";
+
+const quickSort: (nums: number[]) => number[] = match({
+  [p([])]: () => [],
+  [p([sel("head"), ...sel("tail")])]: ({ head, tail }) => {
+    const smaller = tail.filter((n) => n <= head);
+    const greater = tail.filter((n) => n > head);
+    return [...quickSort(smaller), head, ...quickSort(greater)];
+  },
+});
+
+const html = match(result, {
+  [p({ "type?": or("error", "fatal") })]: (res) =>
+    `<p>Oops! Something went wrong: ${res.message}</p>`,
+  [p({ type: "ok", data: { type: "text", content: _ } })]: (content) => `<p>${content}</p>`,
+  [p({ type: "ok", data: as({ type: "img", src: sel("src") }, "data") })]: ({ data, src }) =>
+    `<img src="${src}" />`,
+});
+
+const stringify = match({
+  [p(or(number, boolean, null, undefined))]: (v) => String(v),
+  [p(string)]: (s) => '"' + s + '"',
+  [p(bigint)]: (b) => `${b}n`,
+  [p(Array)]: (a): string => "[" + a.map(stringify).join(", ") + "]",
+  [p(object)]: (o) => {
+    let result = "";
+    for (const k in o) {
+      if (result) result += ", ";
+      result += `${k}: ${stringify(o[k])}`;
+    }
+    return result ? "{ " + result + " }" : "{}";
+  },
+  _: () => {
+    throw new TypeError("Cannot stringify value");
+  },
+});
+```
+
+There’s no magic in these helpers—they simply return the pattern string representing what you constructed. You can mix and match string-based patterns with patterns constructed using the Pattern Builder API.
+
+The core function to construct patterns is `p(pattern)`, which takes objects, arrays, or primitive values and returns the corresponding pattern string, similar to patterns supported in [TS-Pattern](https://github.com/gvergnaud/ts-pattern). Other helper functions are just convenience utilities for specific pattern types.
+
+Here’s a list of all available helper functions:
+
+- `p(pattern: PatternLike): string` - Constructs a pattern from the given value. The input can be an object, array, or primitive value. This is the core function of the Pattern Builder API.
+- `or(...patterns: PatternLike[]): string` - Constructs an "or" pattern that matches if any of the given patterns match.
+- `as(pattern: PatternLike, name: string): string` - Constructs an alias pattern that matches the given pattern and turns it into a named argument with the given name.
+- `sel(name: string): string` - Constructs a named selection that matches any value and exposes it under the given name. Spread is supported by prefixing the name with `...`.
+- `_` - A wildcard that matches any value and turns it into an unnamed argument. Spread syntax is supported by using `..._`.
+- `any` - A wildcard that matches any value but does not turn it into an argument (like `*`).
+- `string/number/boolean/...` - Typed wildcards that match specific types. See the [Wildcards](#wildcards-spread-wildcardtyped-wildcards) section for the full list of supported typed wildcards. Constructors like `Array`, `Date`, `RegExp`, etc. can also be used as typed wildcards.
+- `null/undefined` - Literal patterns that match `null` or `undefined`.
 
 ## Performance
 
