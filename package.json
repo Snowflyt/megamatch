@@ -23,6 +23,7 @@
   },
   "license": "MPL-2.0",
   "author": "Ge Gao (Snowflyt) <gaoge011022@gmail.com>",
+  "sideEffects": false,
   "type": "module",
   "main": "./index.js",
   "module": "./index.js",
