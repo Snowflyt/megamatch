@@ -221,7 +221,7 @@ const mergeArgs = (
 
   if (Array.isArray(args1) && Array.isArray(args2)) return args1.concat(args2);
   if (!Array.isArray(args1) && !Array.isArray(args2))
-    return { ...(args1 as Record<string, unknown>), ...(args2 as Record<string, unknown>) };
+    return Object.assign({}, args1 as Record<string, unknown>, args2 as Record<string, unknown>);
 
   throw new TypeError(" matching error: Cannot mix named and unnamed arguments in a pattern");
 };

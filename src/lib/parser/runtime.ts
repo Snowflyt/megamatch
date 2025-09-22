@@ -619,7 +619,9 @@ export const decimal: Parser<string, number> = map(
  */
 export const decimalBigInt: Parser<string, bigint> = map(
   () => or(just("0"), join(pair(nonZeroDigitChar, join(many(digitChar))))),
-  (str) => (globalThis as any).BigInt(str),
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - BigInt is only available in ES2020+
+  (str) => (typeof BigInt === "function" ? BigInt(str) : (Number(str) as unknown as bigint)),
 );
 
 /**

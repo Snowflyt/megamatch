@@ -169,7 +169,7 @@ export function p<const P extends PatternLike>(pattern: P): Stringify<P> {
       (pattern as unknown) === (globalThis as any).BigUint64Array
     )
       return "BigUint64Array" as Stringify<P>;
-  } catch {
+  } catch (e) {
     // Ignore
   }
 

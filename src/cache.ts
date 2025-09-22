@@ -8,10 +8,10 @@ const CACHE_DEFAULT_MAX_SIZE = 10000;
  * @internal
  */
 class Cache<K, V> {
-  private _maxSize: number;
+  declare private _maxSize: number;
 
-  private readonly _data: Map<K, V>;
-  private readonly _queue: K[];
+  declare private readonly _data: Map<K, V>;
+  declare private readonly _queue: K[];
 
   constructor(maxSize: number) {
     this._maxSize = maxSize;

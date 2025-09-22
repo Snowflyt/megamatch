@@ -2,7 +2,7 @@
  * Error when the given input value does not match any included pattern.
  */
 export class NonExhaustiveError extends Error {
-  input: unknown;
+  declare public readonly input: unknown;
 
   constructor(input: unknown) {
     super(`Pattern matching error: No pattern matches value ${stringify(input)}`);
