@@ -16,6 +16,7 @@ import {
   join,
   just,
   justAs,
+  keywordAs,
   left,
   letters,
   lexeme,
@@ -146,7 +147,7 @@ const validUpperBounds = [
 
 const wildcardParser: Parser<string, Node> = choice([
   justAs("*", ["Wildcard", "unknown"]),
-  ...validUpperBounds.map((type) => justAs(type, ["Wildcard", type] as Node)),
+  ...validUpperBounds.map((type) => keywordAs(type, letters + "(", ["Wildcard", type] as Node)),
 ]);
 
 // ... / ...*

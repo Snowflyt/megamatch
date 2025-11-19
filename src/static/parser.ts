@@ -16,6 +16,7 @@ import type {
   Join,
   Just,
   JustAs,
+  KeywordAs,
   Left,
   Letter,
   Lexeme,
@@ -74,7 +75,10 @@ type ParseSugaredADTRoot<Pattern extends string> =
     { success: true; data: infer Tag extends string; rest: infer Rest }
   ) ?
     [Tag] extends (
-      [WildcardParser extends Choice<JustAs<infer Name extends string, any>[]> ? Name : never]
+      [
+        WildcardParser extends Choice<KeywordAs<infer Name extends string, infer _, any>[]> ? Name
+        : never,
+      ]
     ) ?
       never
     : Parse<Space, Rest> extends { rest: "" } ? [type: "SugaredADTRoot", tag: Tag]
@@ -141,27 +145,32 @@ type StringLiteralParser = Map<
 type WildcardParser = Choice<
   [
     JustAs<"*", [type: "Wildcard", upperBound: unknown]>,
-    JustAs<"string", [type: "Wildcard", upperBound: string]>,
-    JustAs<"number", [type: "Wildcard", upperBound: number]>,
-    JustAs<"boolean", [type: "Wildcard", upperBound: boolean]>,
-    JustAs<"symbol", [type: "Wildcard", upperBound: symbol]>,
-    JustAs<"bigint", [type: "Wildcard", upperBound: bigint]>,
+    KeywordAs<"string", Letter | "(", [type: "Wildcard", upperBound: string]>,
+    KeywordAs<"number", Letter | "(", [type: "Wildcard", upperBound: number]>,
+    KeywordAs<"boolean", Letter | "(", [type: "Wildcard", upperBound: boolean]>,
+    KeywordAs<"symbol", Letter | "(", [type: "Wildcard", upperBound: symbol]>,
+    KeywordAs<"bigint", Letter | "(", [type: "Wildcard", upperBound: bigint]>,
     // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-    JustAs<"function", [type: "Wildcard", upperBound: Function]>,
-    JustAs<"object", [type: "Wildcard", upperBound: object]>,
-    JustAs<"nonNullable", [type: "Wildcard", upperBound: {}]>,
-    JustAs<"Date", [type: "Wildcard", upperBound: Date]>,
-    JustAs<"RegExp", [type: "Wildcard", upperBound: RegExp]>,
-    JustAs<"Error", [type: "Wildcard", upperBound: Error]>,
-    JustAs<"ArrayBuffer", [type: "Wildcard", upperBound: ArrayBuffer]>,
-    JustAs<"Array", [type: "Wildcard", upperBound: unknown[]]>,
-    JustAs<"Map", [type: "Wildcard", upperBound: globalThis.Map<unknown, unknown>]>,
-    JustAs<"Set", [type: "Wildcard", upperBound: Set<unknown>]>,
-    JustAs<"WeakMap", [type: "Wildcard", upperBound: WeakMap<WeakKey, unknown>]>,
-    JustAs<"WeakSet", [type: "Wildcard", upperBound: WeakSet<WeakKey>]>,
-    JustAs<"Promise", [type: "Wildcard", upperBound: Promise<unknown>]>,
-    JustAs<
+    KeywordAs<"function", Letter | "(", [type: "Wildcard", upperBound: Function]>,
+    KeywordAs<"object", Letter | "(", [type: "Wildcard", upperBound: object]>,
+    KeywordAs<"nonNullable", Letter | "(", [type: "Wildcard", upperBound: {}]>,
+    KeywordAs<"Date", Letter | "(", [type: "Wildcard", upperBound: Date]>,
+    KeywordAs<"RegExp", Letter | "(", [type: "Wildcard", upperBound: RegExp]>,
+    KeywordAs<"Error", Letter | "(", [type: "Wildcard", upperBound: Error]>,
+    KeywordAs<"ArrayBuffer", Letter | "(", [type: "Wildcard", upperBound: ArrayBuffer]>,
+    KeywordAs<"Array", Letter | "(", [type: "Wildcard", upperBound: unknown[]]>,
+    KeywordAs<
+      "Map",
+      Letter | "(",
+      [type: "Wildcard", upperBound: globalThis.Map<unknown, unknown>]
+    >,
+    KeywordAs<"Set", Letter | "(", [type: "Wildcard", upperBound: Set<unknown>]>,
+    KeywordAs<"WeakMap", Letter | "(", [type: "Wildcard", upperBound: WeakMap<WeakKey, unknown>]>,
+    KeywordAs<"WeakSet", Letter | "(", [type: "Wildcard", upperBound: WeakSet<WeakKey>]>,
+    KeywordAs<"Promise", Letter | "(", [type: "Wildcard", upperBound: Promise<unknown>]>,
+    KeywordAs<
       "TypedArray",
+      Letter | "(",
       [
         type: "Wildcard",
         upperBound:
@@ -180,7 +189,7 @@ type WildcardParser = Choice<
           | (typeof globalThis extends { BigUint64Array: infer T } ? T : never),
       ]
     >,
-    JustAs<"DataView", [type: "Wildcard", upperBound: DataView]>,
+    KeywordAs<"DataView", Letter | "(", [type: "Wildcard", upperBound: DataView]>,
   ]
 >;
 

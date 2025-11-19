@@ -67,6 +67,48 @@ export function justAs<R>(str: string, as: R): Parser<string, R> {
 }
 
 /**
+ * Matches a keyword from the input string and returns it.
+ *
+ * The difference between {@linkcode just} and {@linkcode keyword} is that the
+ * next character after the matched keyword must be the end of input or not
+ * in the given alphabet.
+ * @returns
+ *
+ * @example
+ * ```typescript
+ * parse(keyword("let", letters), "letx = 10"); // => { success: false }
+ * parse(keyword("let", letters), "let x = 10"); // => { success: true; data: "let"; rest: " x = 10" }
+ * ```
+ */
+export function keyword<I extends string>(str: I, alphabet: string): Parser<string, I> {
+  return {
+    parse: (remaining) => {
+      if (remaining === str) return { success: true, data: str, rest: "" };
+      if (remaining.startsWith(str)) {
+        const rest = remaining.slice(str.length);
+        const nextChar = rest[0]!;
+        for (const char of alphabet) if (nextChar === char) return { success: false };
+        return { success: true, data: str, rest };
+      }
+      return { success: false };
+    },
+  };
+}
+
+/**
+ * Matches a keyword from the input string and returns {@linkcode as}.
+ *
+ * The difference between {@linkcode justAs} and {@linkcode keywordAs} is that
+ * the next character after the matched keyword must be the end of input or not
+ * in the given alphabet.
+ * @param str The string to match.
+ * @returns
+ */
+export function keywordAs<R>(str: string, alphabet: string, as: R): Parser<string, R> {
+  return map(keyword(str, alphabet), () => as);
+}
+
+/**
  * Tries an array of parsers in order, returning the result of the first successful one, or a
  * failure if none of them succeed.
  * @param parsers The parsers to try.

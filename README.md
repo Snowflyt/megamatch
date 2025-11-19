@@ -549,6 +549,8 @@ megamatch uses a special encoding for ADTs, which follows the same approach as o
 
 An ADT pattern should follow the `Tag(...)` format, where the parentheses and their contents can be omitted if there are no fields. The `Tag` must be a valid identifier starting with an uppercase letter, as lowercase letters are reserved for [named arguments](#named-arguments). This syntax is essentially equivalent to the `"{ _tag: 'Tag', ... }"` pattern, but provides a more concise representation.
 
+The following example shows how to use ADT patterns to match an `Option` type:
+
 ```typescript
 type Option<T> = { _tag: "Some"; _0: T } | { _tag: "None" };
 
@@ -584,6 +586,96 @@ const getAddr: (addr: IpAddr) => string = match({
   V6: (addr) => addr,
 });
 ```
+
+For a more advanced use case, the following example demonstrates using ADT patterns to implement a tiny IO monad interpreter. This showcases how megamatch handles recursive data structures and complex control flows elegantly.
+
+```typescript
+type IO<A> =
+  | { _tag: "Succeeded"; _0: A }
+  | { _tag: "Errored"; _0: unknown }
+  | { _tag: "Delayed"; _0: () => A }
+  | { _tag: "Map"; _0: IO<unknown>; _1: (a: any) => A }
+  | { _tag: "FlatMap"; _0: IO<unknown>; _1: (a: any) => IO<A> }
+  | { _tag: "Catch"; _0: IO<unknown>; _1: (e: unknown) => IO<A> };
+
+// A tiny interpreter for the IO ADT, written with ADT patterns
+const runIO: <A>(io: IO<A>) => { value: A } | { error: unknown } = match({
+  "Succeeded(_)": (value) => ({ value }),
+  "Errored(_)": (error) => ({ error }),
+  "Delayed(_)": (thunk) => {
+    try {
+      return { value: thunk() };
+    } catch (error) {
+      return { error };
+    }
+  },
+  "Map(_, _)": (io, f) => {
+    const result = runIO(io);
+    if ("error" in result) return { error: result.error };
+    try {
+      return { value: f(result.value) };
+    } catch (error) {
+      return { error };
+    }
+  },
+  "FlatMap(_, _)": (io, f) => {
+    const result = runIO(io);
+    if ("error" in result) return { error: result.error };
+    let io2: IO<any>;
+    try {
+      io2 = f(result.value);
+    } catch (error) {
+      return { error };
+    }
+    return runIO(io2);
+  },
+  "Catch(_, _)": (io, f) => {
+    const result = runIO(io);
+    if ("value" in result) return { value: result.value };
+    let io2: IO<any>;
+    try {
+      io2 = f(result.error);
+    } catch (error) {
+      return { error };
+    }
+    return runIO(io2);
+  },
+});
+```
+
+<details>
+  <summary>Click to see how to compose IO operations with the IO monad</summary>
+
+```typescript
+const succeed = <A>(value: A): IO<A> => ({ _tag: "Succeeded", _0: value });
+const error = (error: unknown): IO<never> => ({ _tag: "Errored", _0: error });
+const delay = <A>(thunk: () => A): IO<A> => ({ _tag: "Delayed", _0: thunk });
+const map = <A, B>(io: IO<A>, f: (a: A) => B): IO<B> => ({ _tag: "Map", _0: io, _1: f });
+const flatMap = <A, B>(io: IO<A>, f: (a: A) => IO<B>): IO<B> => ({
+  _tag: "FlatMap",
+  _0: io,
+  _1: f,
+});
+const catch_ = <A>(io: IO<A>, f: (e: unknown) => IO<A>): IO<A> => ({
+  _tag: "Catch",
+  _0: io,
+  _1: f,
+});
+
+const parseNumber = (s: string): IO<number> =>
+  flatMap(
+    delay(() => Number(s)),
+    (n) => (isNaN(n) ? error(new TypeError(`Cannot parse '${s}' as number`)) : succeed(n)),
+  );
+const reciprocal = (n: number): IO<number> =>
+  n === 0 ? error(new RangeError("Division by zero")) : succeed(1 / n);
+
+const program = flatMap(parseNumber("42"), reciprocal);
+
+console.log(runIO(program));
+```
+
+</details>
 
 ## Types
 

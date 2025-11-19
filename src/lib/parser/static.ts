@@ -87,6 +87,39 @@ export interface JustAs<Str extends string, As> extends Parser<string, As> {
 }
 
 /**
+ * Matches a keyword from the input string and returns it.
+ *
+ * The difference between {@linkcode Just} and {@linkcode Keyword} is that the
+ * next character after the matched keyword must be the end of input or not
+ * in the given alphabet.
+ *
+ * @example
+ * ```typescript
+ * type _1 = Parse<Keyword<"let", Letter>, "letx = 10">; // { success: false }
+ * type _2 = Parse<Keyword<"let", Letter>, "let x = 10">; // { success: true; data: "let"; rest: " x = 10" }
+ * ```
+ */
+export interface Keyword<Str extends string, Alphabet extends string> extends Parser<string, Str> {
+  return: ParseKeyword<Arg0<this>, Str, Alphabet>;
+}
+type ParseKeyword<Remaining, Str extends string, Alphabet extends string> =
+  Remaining extends `${Str}${Alphabet}${string}` ? { success: false } : ParseJust<Remaining, Str>;
+
+/**
+ * Matches a keyword from the input string and returns {@linkcode As}.
+ *
+ * The difference between {@linkcode JustAs} and {@linkcode KeywordAs} is that
+ * the next character after the matched keyword must be the end of input or not
+ * in the given alphabet.
+ */
+export interface KeywordAs<Str extends string, Alphabet extends string, As>
+  extends Parser<string, As> {
+  return: ParseKeyword<Arg0<this>, Str, Alphabet> extends { success: true; rest: infer Rest } ?
+    { success: true; data: As; rest: Rest }
+  : { success: false };
+}
+
+/**
  * Tries a list of parsers in order, returning the result of the first successful one, or a failure
  * if none of them succeed.
  */

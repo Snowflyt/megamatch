@@ -616,6 +616,78 @@ test("Patterns > ADT (Algebraic Data Types) patterns", () => {
 
   expect(getAddr(V4(127, 0, 0, 1))).toEqual("127.0.0.1");
   expect(getAddr(V6("::1"))).toEqual("::1");
+
+  type IO<A> =
+    | { _tag: "Succeeded"; _0: A }
+    | { _tag: "Errored"; _0: unknown }
+    | { _tag: "Delayed"; _0: () => A }
+    | { _tag: "Map"; _0: IO<unknown>; _1: (a: any) => A }
+    | { _tag: "FlatMap"; _0: IO<unknown>; _1: (a: any) => IO<A> }
+    | { _tag: "Catch"; _0: IO<unknown>; _1: (e: unknown) => IO<A> };
+
+  const runIO: <A>(io: IO<A>) => { value: A } | { error: unknown } = match({
+    "Succeeded(_)": (value) => ({ value }),
+    "Errored(_)": (error) => ({ error }),
+    "Delayed(_)": (thunk) => {
+      try {
+        return { value: thunk() };
+      } catch (error) {
+        return { error };
+      }
+    },
+    "Map(_, _)": (io, f) => {
+      const result = runIO(io);
+      if ("error" in result) return { error: result.error };
+      try {
+        return { value: f(result.value) };
+      } catch (error) {
+        return { error };
+      }
+    },
+    "FlatMap(_, _)": (io, f) => {
+      const result = runIO(io);
+      if ("error" in result) return { error: result.error };
+      let io2: IO<any>;
+      try {
+        io2 = f(result.value);
+      } catch (error) {
+        return { error };
+      }
+      return runIO(io2);
+    },
+    "Catch(_, _)": (io, f) => {
+      const result = runIO(io);
+      if ("value" in result) return { value: result.value };
+      let io2: IO<any>;
+      try {
+        io2 = f(result.error);
+      } catch (error) {
+        return { error };
+      }
+      return runIO(io2);
+    },
+  });
+
+  const succeed = <A>(value: A): IO<A> => ({ _tag: "Succeeded", _0: value });
+  const error = (error: unknown): IO<never> => ({ _tag: "Errored", _0: error });
+  const delay = <A>(thunk: () => A): IO<A> => ({ _tag: "Delayed", _0: thunk });
+  const flatMap = <A, B>(io: IO<A>, f: (a: A) => IO<B>): IO<B> => ({
+    _tag: "FlatMap",
+    _0: io,
+    _1: f,
+  });
+
+  const parseNumber = (s: string): IO<number> =>
+    flatMap(
+      delay(() => Number(s)),
+      (n) => (isNaN(n) ? error(new TypeError(`Cannot parse '${s}' as number`)) : succeed(n)),
+    );
+  const reciprocal = (n: number): IO<number> =>
+    n === 0 ? error(new RangeError("Division by zero")) : succeed(1 / n);
+
+  const program = flatMap(parseNumber("42"), reciprocal);
+
+  expect(runIO(program)).toEqual({ value: 1 / 42 });
 });
 
 test("Pattern Builder API", () => {
